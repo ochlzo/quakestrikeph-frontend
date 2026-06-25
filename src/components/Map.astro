@@ -21,8 +21,8 @@ interface Props {
 }
 
 const {
-  lat = 12.8797,
-  lng = 121.774,
+  lat = 13.0,
+  lng = 115.5,
   zoom = 6,
   height = "500px",
   id = "leaflet-map",
@@ -63,6 +63,9 @@ const {
       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   });
 
+  // Detect mobile screen (≤768px) — checked once, outside the loop.
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
   // Read props from data-* attributes.
   // querySelectorAll handles multiple <Map /> instances on the same page.
   document.querySelectorAll("[data-lat][data-lng][data-zoom]").forEach((el) => {
@@ -71,21 +74,35 @@ const {
     const lng = parseFloat(htmlEl.dataset.lng!);
     const zoom = parseInt(htmlEl.dataset.zoom!, 10);
 
-    // Bounding box that covers the entire Philippine archipelago with some padding.
-    const philippinesBounds = L.latLngBounds(
-      L.latLng(4.0, 114.0),   // Southwest corner
-      L.latLng(22.5, 128.0),  // Northeast corner
-    );
+    // Desktop: generous padding to allow the off-center prop-driven position.
+    // Mobile: tighter bounds hugging the archipelago — less room to pan away.
+    const philippinesBounds = isMobile
+      ? L.latLngBounds(
+          L.latLng(4.5, 116.0),   // SW — tight west boundary
+          L.latLng(22.0, 128.0),  // NE — tight east boundary
+        )
+      : L.latLngBounds(
+          L.latLng(4.5, 102.0),   // SW — wide west padding for desktop off-center view
+          L.latLng(22.0, 145.0),  // NE — wide east padding for desktop off-center view
+        );
+
+    // On mobile, use the geographic center of the Philippines so the country
+    // fills the portrait viewport naturally. Desktop uses the prop-driven center.
+    const center: [number, number] = isMobile ? [12.8797, 121.774] : [lat, lng];
 
     const map = L.map(htmlEl, {
-      center: [lat, lng],
-      zoom,
-      minZoom: 5,                          // Can't zoom out past seeing the whole PH
-      maxBounds: philippinesBounds,        // Pan is restricted to this box
-      maxBoundsViscosity: 1.0,            // 1.0 = hard wall, 0.0 = soft/elastic
-      zoomControl: true,
-      attributionControl: true,
+      center,
+      zoom: zoom,
+      minZoom: 5,
+      maxBounds: philippinesBounds,
+      maxBoundsViscosity: 1.0,
+      zoomControl: false,
+      attributionControl: false,
     });
+
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.control.attribution({ position: "bottomleft" }).addTo(map);
+
 
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -94,3 +111,4 @@ const {
     }).addTo(map);
   });
 </script>
+
