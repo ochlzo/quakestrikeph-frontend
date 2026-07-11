@@ -99,6 +99,19 @@ const {
         '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
     }).addTo(map);
 
+    // The sidebar changes this element's width without triggering a window
+    // resize. Keep Leaflet's viewport in sync through the full transition so
+    // it redraws newly exposed space instead of leaving a blank edge.
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize({
+        animate: false,
+        pan: true,
+        debounceMoveend: true,
+      });
+    });
+    resizeObserver.observe(htmlEl);
+    map.once("unload", () => resizeObserver.disconnect());
+
     // Defer the event by one animation frame so all other component scripts
     // (e.g. Experiment.astro) have finished registering their listeners first.
     requestAnimationFrame(() => {
