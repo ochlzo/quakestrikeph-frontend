@@ -1,0 +1,317 @@
+---
+/**
+ * MapInspector.astro
+ *
+ * A developer helper widget that floats on top of Map.astro.
+ * Shows the current center coordinates, zoom level, and viewport bounding box (bounds)
+ * in real-time as you pan and zoom, with handy "Copy" buttons for copy-pasting
+ * configuration values directly into Map.astro.
+ *
+ * Props:
+ *   enabled - Whether to show the inspector (default: true)
+ *   positionStyles - Inline CSS position styles (default: top-right overlay style)
+ */
+interface Props {
+  enabled?: boolean;
+  positionStyles?: string;
+}
+
+const {
+  enabled = true,
+  positionStyles = "top: 24px; right: 24px;",
+} = Astro.props;
+---
+
+{enabled && (
+  <div
+    class="map-inspector-container collapsed"
+    style={positionStyles}
+    id="map-inspector"
+  >
+    <div class="inspector-header">
+      <span class="header-title">🗺️ Map Inspector</span>
+      <button class="toggle-collapse-btn" aria-label="Toggle inspector panel">
+        <svg class="chevron-icon" viewBox="0 0 24 24" width="16" height="16">
+          <path fill="currentColor" d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" />
+        </svg>
+      </button>
+    </div>
+    
+    <div class="inspector-content">
+      <div class="info-group">
+        <div class="info-label">Center Coordinate</div>
+        <div class="info-row">
+          <code class="info-value" id="inspector-center">[0.0, 0.0]</code>
+          <button class="copy-btn" id="copy-center-btn" title="Copy center array">
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="info-group">
+        <div class="info-label">Zoom Level</div>
+        <div class="info-value" id="inspector-zoom">0</div>
+      </div>
+
+      <div class="info-group">
+        <div class="info-label">Viewport Bounds (Leaflet format)</div>
+        <div class="info-row">
+          <div class="bounds-details">
+            <div>SW: <code id="inspector-bounds-sw">[0.0, 0.0]</code></div>
+            <div>NE: <code id="inspector-bounds-ne">[0.0, 0.0]</code></div>
+          </div>
+          <button class="copy-btn" id="copy-bounds-btn" title="Copy L.latLngBounds code">
+            Copy
+          </button>
+        </div>
+      </div>
+      
+      <div class="copied-toast" id="copied-toast">Copied!</div>
+    </div>
+  </div>
+)}
+
+<style>
+  .map-inspector-container {
+    position: absolute;
+    z-index: 1100; /* Must sit higher than map layers and slider (1000) */
+    width: 320px;
+    background: rgba(30, 41, 59, 0.85); /* Slate 800 with transparency */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .map-inspector-container.collapsed {
+    width: 180px;
+  }
+
+  .inspector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    color: #e2e8f0;
+  }
+
+  .toggle-collapse-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-collapse-btn:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .chevron-icon {
+    transition: transform 0.3s ease;
+    transform: rotate(180deg); /* default down position for collapsed */
+  }
+
+  .map-inspector-container:not(.collapsed) .chevron-icon {
+    transform: rotate(0deg); /* up position for expanded */
+  }
+
+  .inspector-content {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: max-height 0.3s ease;
+  }
+
+  .map-inspector-container.collapsed .inspector-content {
+    display: none;
+  }
+
+  .info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .info-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .info-value {
+    font-family: monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 4px 6px;
+    border-radius: 6px;
+    color: #38bdf8; /* sky 400 */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    word-break: break-all;
+  }
+
+  .bounds-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: #38bdf8;
+  }
+
+  .bounds-details code {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+
+  .copy-btn {
+    background: #0284c7; /* sky 600 */
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .copy-btn:hover {
+    background: #0369a1; /* sky 700 */
+  }
+
+  .copy-btn:active {
+    transform: scale(0.95);
+  }
+
+  .copied-toast {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translate(-50%, 20px);
+    opacity: 0;
+    background: #10b981; /* Emerald 500 */
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  }
+
+  .copied-toast.show {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+</style>
+
+<script>
+  import L from "leaflet";
+
+  document.addEventListener("leaflet:ready", (e) => {
+    const { map } = (e as CustomEvent<{ map: L.Map }>).detail;
+
+    const container = document.getElementById("map-inspector");
+    if (!container) return;
+
+    const header = container.querySelector(".inspector-header") as HTMLDivElement;
+    const centerDisplay = document.getElementById("inspector-center") as HTMLElement;
+    const zoomDisplay = document.getElementById("inspector-zoom") as HTMLElement;
+    const swDisplay = document.getElementById("inspector-bounds-sw") as HTMLElement;
+    const neDisplay = document.getElementById("inspector-bounds-ne") as HTMLElement;
+
+    const copyCenterBtn = document.getElementById("copy-center-btn") as HTMLButtonElement;
+    const copyBoundsBtn = document.getElementById("copy-bounds-btn") as HTMLButtonElement;
+    const toast = document.getElementById("copied-toast") as HTMLDivElement;
+
+    // --- Panel Collapse/Expand ---
+    header.addEventListener("click", () => {
+      container.classList.toggle("collapsed");
+    });
+
+    // --- Show Copy Toast ---
+    const showToast = () => {
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 1500);
+    };
+
+    // --- Copy Actions ---
+    let currentCenterValue = "";
+    let currentBoundsValue = "";
+
+    copyCenterBtn.addEventListener("click", (event) => {
+      event.stopPropagation(); // Avoid collapsing/expanding header
+      navigator.clipboard.writeText(currentCenterValue).then(() => {
+        showToast();
+      });
+    });
+
+    copyBoundsBtn.addEventListener("click", (event) => {
+      event.stopPropagation(); // Avoid collapsing/expanding header
+      navigator.clipboard.writeText(currentBoundsValue).then(() => {
+        showToast();
+      });
+    });
+
+    // --- Update Values ---
+    const updateInspector = () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+
+      // Format displays
+      centerDisplay.textContent = `[${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}]`;
+      zoomDisplay.textContent = zoom.toFixed(1);
+      swDisplay.textContent = `[${sw.lat.toFixed(4)}, ${sw.lng.toFixed(4)}]`;
+      neDisplay.textContent = `[${ne.lat.toFixed(4)}, ${ne.lng.toFixed(4)}]`;
+
+      // Cache values to copy
+      currentCenterValue = `[${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}]`;
+      currentBoundsValue = `L.latLngBounds(L.latLng(${sw.lat.toFixed(4)}, ${sw.lng.toFixed(4)}), L.latLng(${ne.lat.toFixed(4)}, ${ne.lng.toFixed(4)}))`;
+    };
+
+    // Listen for events
+    map.on("move", updateInspector);
+    map.on("zoom", updateInspector);
+
+    // Initial load
+    updateInspector();
+  });
+</script>

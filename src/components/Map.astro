@@ -2,12 +2,12 @@
 /**
  * Map.astro
  *
- * A Leaflet map component that defaults to showing the Philippines.
- * Uses client-side vanilla JS — no framework integration required.
+ * A Leaflet map component that defaults to showing the Philippines,
+ * loading Google Maps raster tiles for free without requiring an API key.
  *
  * Props:
- *   lat     - Initial center latitude  (default: 12.8797 — Philippines)
- *   lng     - Initial center longitude (default: 121.7740 — Philippines)
+ *   lat     - Initial center latitude  (default: 13.0 — Philippines-ish)
+ *   lng     - Initial center longitude (default: 115.5 — Philippines-ish)
  *   zoom    - Initial zoom level       (default: 6)
  *   height  - CSS height of the map    (default: "500px")
  *   id      - Unique DOM id for the map container (default: "leaflet-map")
@@ -21,8 +21,8 @@ interface Props {
 }
 
 const {
-  lat = 13.0,
-  lng = 115.5,
+  lat = 12.3937,
+  lng = 123.0908,
   zoom = 6,
   height = "500px",
   id = "leaflet-map",
@@ -42,18 +42,15 @@ const {
   data-lat={lat}
   data-lng={lng}
   data-zoom={zoom}
-  style={`height: ${height}; width: 100%; border-radius: 12px; overflow: hidden;`}
+  style={`position: relative; height: ${height}; width: 100%; border-radius: 12px; overflow: hidden;`}
   aria-label="Interactive map of the Philippines"
   role="application"
 ></div>
 
 <script>
-  // Astro <script> tags without define:vars are treated as ESM modules,
-  // so `import` works correctly here. Props are passed via data-* attributes.
   import L from "leaflet";
 
   // Fix missing default marker icons when bundled (Leaflet asset path issue).
-  // See: https://github.com/Leaflet/Leaflet/issues/4968
   delete (L.Icon.Default.prototype as any)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl:
@@ -74,41 +71,49 @@ const {
     const lng = parseFloat(htmlEl.dataset.lng!);
     const zoom = parseInt(htmlEl.dataset.zoom!, 10);
 
-    // Desktop: generous padding to allow the off-center prop-driven position.
-    // Mobile: tighter bounds hugging the archipelago — less room to pan away.
     const philippinesBounds = isMobile
       ? L.latLngBounds(
-          L.latLng(4.5, 116.0),   // SW — tight west boundary
-          L.latLng(22.0, 128.0),  // NE — tight east boundary
+          L.latLng(-2.7675, 114.1552),  // SW
+          L.latLng(25.6415, 129.9023),  // NE
         )
       : L.latLngBounds(
-          L.latLng(4.5, 102.0),   // SW — wide west padding for desktop off-center view
-          L.latLng(22.0, 145.0),  // NE — wide east padding for desktop off-center view
+          L.latLng(2.1089, 101.9971),   // SW
+          L.latLng(22.2891, 144.1846),  // NE
         );
 
-    // On mobile, use the geographic center of the Philippines so the country
-    // fills the portrait viewport naturally. Desktop uses the prop-driven center.
-    const center: [number, number] = isMobile ? [12.8797, 121.774] : [lat, lng];
+    // On mobile, use the optimized geographic center of the Philippines.
+    // Desktop uses the prop-driven center.
+    const center: [number, number] = isMobile ? [9.6012, 122.2564] : [lat, lng];
+    const initialZoom = isMobile ? 6 : zoom;
+    const minZoom = 6;
 
     const map = L.map(htmlEl, {
       center,
-      zoom: zoom,
-      minZoom: 5,
+      zoom: initialZoom,
+      minZoom,
       maxBounds: philippinesBounds,
       maxBoundsViscosity: 1.0,
       zoomControl: false,
       attributionControl: false,
     });
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
     L.control.attribution({ position: "bottomleft" }).addTo(map);
 
-
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    // Load Google Maps standard roadmap tiles without requiring an API key.
+    L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      subdomains: ["0", "1", "2", "3"],
+      maxZoom: 20,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
     }).addTo(map);
+
+    // Defer the event by one animation frame so all other component scripts
+    // (e.g. Experiment.astro) have finished registering their listeners first.
+    requestAnimationFrame(() => {
+      htmlEl.dispatchEvent(
+        new CustomEvent("leaflet:ready", { detail: { map }, bubbles: true })
+      );
+    });
   });
 </script>
 

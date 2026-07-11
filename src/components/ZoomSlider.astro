@@ -1,0 +1,198 @@
+---
+/**
+ * ZoomSlider.astro
+ *
+ * A reusable horizontal zoom slider component that binds to a Leaflet map.
+ * Must be rendered on the same page as <Map />.
+ *
+ * Props:
+ *   positionStyles - Inline CSS position styles (default: centered bottom overlay)
+ *   id             - Unique DOM ID for the slider input
+ */
+interface Props {
+  positionStyles?: string;
+  id?: string;
+}
+
+const {
+  positionStyles = "bottom: 24px; right: 24px;",
+  id = "map-zoom-slider",
+} = Astro.props;
+---
+
+<div
+  class="zoom-slider-container"
+  style={positionStyles}
+>
+  <button class="zoom-btn zoom-out" aria-label="Zoom out">−</button>
+  <input
+    type="range"
+    id={id}
+    class="zoom-slider"
+    min="5"
+    max="20"
+    step="0.1"
+    value="6"
+  />
+  <button class="zoom-btn zoom-in" aria-label="Zoom in">+</button>
+</div>
+
+<style>
+  .zoom-slider-container {
+    position: absolute;
+    z-index: 1000; /* Float above Leaflet map tiles and overlays */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    width: 240px;
+    box-sizing: border-box;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .zoom-slider-container:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .zoom-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    font-weight: 600;
+    color: #4a5568;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .zoom-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1a202c;
+  }
+
+  .zoom-btn:active {
+    transform: scale(0.9);
+  }
+
+  /* Custom Range Input Styling */
+  .zoom-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    outline: none;
+    transition: background 0.3s ease;
+  }
+
+  .zoom-slider:hover {
+    background: #cbd5e0;
+  }
+
+  /* WebKit (Chrome, Safari, Edge) */
+  .zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3182ce;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(49, 130, 206, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .zoom-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    background: #2b6cb0;
+    box-shadow: 0 2px 8px rgba(49, 130, 206, 0.5);
+  }
+
+  /* Firefox */
+  .zoom-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3182ce;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(49, 130, 206, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .zoom-slider::-moz-range-thumb:hover {
+    transform: scale(1.25);
+    background: #2b6cb0;
+    box-shadow: 0 2px 8px rgba(49, 130, 206, 0.5);
+  }
+
+  @media (max-width: 768px) {
+    .zoom-slider-container {
+      display: none !important;
+    }
+  }
+</style>
+
+<script>
+  import L from "leaflet";
+
+  document.addEventListener("leaflet:ready", (e) => {
+    const { map } = (e as CustomEvent<{ map: L.Map }>).detail;
+
+    // Find the slider containers on the page
+    const containers = document.querySelectorAll(".zoom-slider-container");
+    
+    containers.forEach((container) => {
+      const slider = container.querySelector(".zoom-slider") as HTMLInputElement;
+      const btnOut = container.querySelector(".zoom-out") as HTMLButtonElement;
+      const btnIn = container.querySelector(".zoom-in") as HTMLButtonElement;
+
+      if (!slider) return;
+
+      // Sync slider properties with Leaflet map limits
+      slider.min = map.getMinZoom().toString();
+      slider.max = map.getMaxZoom().toString();
+      slider.value = map.getZoom().toString();
+
+      // Listen for map zoom changes (slider updates to match map)
+      map.on("zoom", () => {
+        slider.value = map.getZoom().toFixed(1);
+      });
+
+      // Listen for slider input (map updates to match slider)
+      slider.addEventListener("input", (event) => {
+        const val = parseFloat((event.target as HTMLInputElement).value);
+        map.setZoom(val);
+      });
+
+      // Plus / Minus button click actions
+      if (btnOut) {
+        btnOut.addEventListener("click", () => {
+          map.zoomOut();
+        });
+      }
+
+      if (btnIn) {
+        btnIn.addEventListener("click", () => {
+          map.zoomIn();
+        });
+      }
+    });
+  });
+</script>
