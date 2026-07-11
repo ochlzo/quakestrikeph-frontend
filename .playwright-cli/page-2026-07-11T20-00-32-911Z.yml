@@ -1,0 +1,107 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - link "Home" [ref=e11] [cursor=pointer]:
+            - /url: "#"
+      - list [ref=e18]:
+        - listitem [ref=e19]:
+          - button "Inbox" [ref=e20]
+        - listitem [ref=e24]:
+          - button "Drafts" [ref=e25]
+        - listitem [ref=e29]:
+          - button "Sent" [ref=e30]
+        - listitem [ref=e34]:
+          - button "Junk" [ref=e35]
+        - listitem [ref=e41]:
+          - button "Trash" [ref=e42]
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - button "CN shadcn m@example.com" [ref=e49]:
+            - generic [ref=e50]: CN
+            - generic:
+              - generic: shadcn
+              - generic: m@example.com
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: Inbox
+          - generic [ref=e59]:
+            - generic [ref=e60]: Unreads
+            - switch [ref=e61]
+            - checkbox [ref=e62]
+        - textbox "Type to search..." [ref=e63]
+      - generic [ref=e66]:
+        - link "William Smith 09:34 AM Meeting Tomorrow Hi team, just a reminder about our meeting tomorrow at 10 AM. Please come prepared with your project updates." [ref=e67] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e68]:
+            - generic [ref=e69]: William Smith
+            - generic [ref=e70]: 09:34 AM
+          - generic [ref=e71]: Meeting Tomorrow
+          - generic [ref=e72]: Hi team, just a reminder about our meeting tomorrow at 10 AM. Please come prepared with your project updates.
+        - 'link "Alice Smith Yesterday Re: Project Update Thanks for the update. The progress looks great so far. Let''s schedule a call to discuss the next steps." [ref=e73] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=e74]:
+            - generic [ref=e75]: Alice Smith
+            - generic [ref=e76]: Yesterday
+          - generic [ref=e77]: "Re: Project Update"
+          - generic [ref=e78]: Thanks for the update. The progress looks great so far. Let's schedule a call to discuss the next steps.
+        - link "Bob Johnson 2 days ago Weekend Plans Hey everyone! I'm thinking of organizing a team outing this weekend. Would you be interested in a hiking trip or a beach day?" [ref=e79] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e80]:
+            - generic [ref=e81]: Bob Johnson
+            - generic [ref=e82]: 2 days ago
+          - generic [ref=e83]: Weekend Plans
+          - generic [ref=e84]: Hey everyone! I'm thinking of organizing a team outing this weekend. Would you be interested in a hiking trip or a beach day?
+        - 'link "Emily Davis 2 days ago Re: Question about Budget I''ve reviewed the budget numbers you sent over. Can we set up a quick call to discuss some potential adjustments?" [ref=e85] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=e86]:
+            - generic [ref=e87]: Emily Davis
+            - generic [ref=e88]: 2 days ago
+          - generic [ref=e89]: "Re: Question about Budget"
+          - generic [ref=e90]: I've reviewed the budget numbers you sent over. Can we set up a quick call to discuss some potential adjustments?
+        - link "Michael Wilson 1 week ago Important Announcement Please join us for an all-hands meeting this Friday at 3 PM. We have some exciting news to share about the company's future." [ref=e91] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e92]:
+            - generic [ref=e93]: Michael Wilson
+            - generic [ref=e94]: 1 week ago
+          - generic [ref=e95]: Important Announcement
+          - generic [ref=e96]: Please join us for an all-hands meeting this Friday at 3 PM. We have some exciting news to share about the company's future.
+        - 'link "Sarah Brown 1 week ago Re: Feedback on Proposal Thank you for sending over the proposal. I''ve reviewed it and have some thoughts. Could we schedule a meeting to discuss my feedback in detail?" [ref=e97] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=e98]:
+            - generic [ref=e99]: Sarah Brown
+            - generic [ref=e100]: 1 week ago
+          - generic [ref=e101]: "Re: Feedback on Proposal"
+          - generic [ref=e102]: Thank you for sending over the proposal. I've reviewed it and have some thoughts. Could we schedule a meeting to discuss my feedback in detail?
+        - link "David Lee 1 week ago New Project Idea I've been brainstorming and came up with an interesting project concept. Do you have time this week to discuss its potential impact and feasibility?" [ref=e103] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e104]:
+            - generic [ref=e105]: David Lee
+            - generic [ref=e106]: 1 week ago
+          - generic [ref=e107]: New Project Idea
+          - generic [ref=e108]: I've been brainstorming and came up with an interesting project concept. Do you have time this week to discuss its potential impact and feasibility?
+        - link "Olivia Wilson 1 week ago Vacation Plans Just a heads up that I'll be taking a two-week vacation next month. I'll make sure all my projects are up to date before I leave." [ref=e109] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e110]:
+            - generic [ref=e111]: Olivia Wilson
+            - generic [ref=e112]: 1 week ago
+          - generic [ref=e113]: Vacation Plans
+          - generic [ref=e114]: Just a heads up that I'll be taking a two-week vacation next month. I'll make sure all my projects are up to date before I leave.
+        - 'link "James Martin 1 week ago Re: Conference Registration I''ve completed the registration for the upcoming tech conference. Let me know if you need any additional information from my end." [ref=e115] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=e116]:
+            - generic [ref=e117]: James Martin
+            - generic [ref=e118]: 1 week ago
+          - generic [ref=e119]: "Re: Conference Registration"
+          - generic [ref=e120]: I've completed the registration for the upcoming tech conference. Let me know if you need any additional information from my end.
+        - link "Sophia White 1 week ago Team Dinner To celebrate our recent project success, I'd like to organize a team dinner. Are you available next Friday evening? Please let me know your preferences." [ref=e121] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e122]:
+            - generic [ref=e123]: Sophia White
+            - generic [ref=e124]: 1 week ago
+          - generic [ref=e125]: Team Dinner
+          - generic [ref=e126]: To celebrate our recent project success, I'd like to organize a team dinner. Are you available next Friday evening? Please let me know your preferences.
+  - main [ref=e127]:
+    - button "Toggle Sidebar" [ref=e129]

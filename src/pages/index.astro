@@ -1,16 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Map from '../components/Map.astro';
-import ZoomSlider from '../components/ZoomSlider.astro';
-import MapInspector from '../components/MapInspector.astro';
 import Experiment from '../components/Experiment.astro';
+import Map from '../components/Map.astro';
+import { MapPageShell } from '../components/map-page-shell';
 ---
 
 <Layout>
-  <div style="position: relative; height: 100vh; width: 100%;">
-    <Map height="100vh" />
-    <ZoomSlider />
-    <MapInspector enabled={false} />
-  </div>
-  <Experiment />
+  <MapPageShell client:load>
+    <div class="relative h-svh min-w-0 w-full overflow-hidden">
+      <Map height="100%" />
+    </div>
+    <Experiment />
+  </MapPageShell>
 </Layout>

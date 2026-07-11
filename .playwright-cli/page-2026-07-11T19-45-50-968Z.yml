@@ -1,0 +1,130 @@
+- generic [ref=f2e3]:
+  - generic [ref=f2e6]:
+    - generic [ref=f2e7]:
+      - list [ref=f2e9]:
+        - listitem [ref=f2e10]:
+          - link [ref=f2e11] [cursor=pointer]:
+            - /url: "#"
+            - generic:
+              - generic: Acme Inc
+              - generic: Enterprise
+      - list [ref=f2e18]:
+        - listitem [ref=f2e19]:
+          - button "Inbox" [ref=f2e20]
+        - listitem [ref=f2e24]:
+          - button "Drafts" [ref=f2e25]
+        - listitem [ref=f2e29]:
+          - button "Sent" [ref=f2e30]
+        - listitem [ref=f2e34]:
+          - button "Junk" [ref=f2e35]
+        - listitem [ref=f2e41]:
+          - button "Trash" [ref=f2e42]
+      - list [ref=f2e47]:
+        - listitem [ref=f2e48]:
+          - button "CN shadcn m@example.com" [ref=f2e49]:
+            - generic [ref=f2e50]: CN
+            - generic:
+              - generic: shadcn
+              - generic: m@example.com
+    - generic [ref=f2e55]:
+      - generic [ref=f2e56]:
+        - generic [ref=f2e57]:
+          - generic [ref=f2e58]: Inbox
+          - generic [ref=f2e59]:
+            - generic [ref=f2e60]: Unreads
+            - switch [ref=f2e61]
+            - checkbox [ref=f2e62]
+        - textbox "Type to search..." [ref=f2e63]
+      - generic [ref=f2e66]:
+        - link "William Smith 09:34 AM Meeting Tomorrow Hi team, just a reminder about our meeting tomorrow at 10 AM. Please come prepared with your project updates." [ref=f2e67] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e68]:
+            - generic [ref=f2e69]: William Smith
+            - generic [ref=f2e70]: 09:34 AM
+          - generic [ref=f2e71]: Meeting Tomorrow
+          - generic [ref=f2e72]: Hi team, just a reminder about our meeting tomorrow at 10 AM. Please come prepared with your project updates.
+        - 'link "Alice Smith Yesterday Re: Project Update Thanks for the update. The progress looks great so far. Let''s schedule a call to discuss the next steps." [ref=f2e73] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=f2e74]:
+            - generic [ref=f2e75]: Alice Smith
+            - generic [ref=f2e76]: Yesterday
+          - generic [ref=f2e77]: "Re: Project Update"
+          - generic [ref=f2e78]: Thanks for the update. The progress looks great so far. Let's schedule a call to discuss the next steps.
+        - link "Bob Johnson 2 days ago Weekend Plans Hey everyone! I'm thinking of organizing a team outing this weekend. Would you be interested in a hiking trip or a beach day?" [ref=f2e79] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e80]:
+            - generic [ref=f2e81]: Bob Johnson
+            - generic [ref=f2e82]: 2 days ago
+          - generic [ref=f2e83]: Weekend Plans
+          - generic [ref=f2e84]: Hey everyone! I'm thinking of organizing a team outing this weekend. Would you be interested in a hiking trip or a beach day?
+        - 'link "Emily Davis 2 days ago Re: Question about Budget I''ve reviewed the budget numbers you sent over. Can we set up a quick call to discuss some potential adjustments?" [ref=f2e85] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=f2e86]:
+            - generic [ref=f2e87]: Emily Davis
+            - generic [ref=f2e88]: 2 days ago
+          - generic [ref=f2e89]: "Re: Question about Budget"
+          - generic [ref=f2e90]: I've reviewed the budget numbers you sent over. Can we set up a quick call to discuss some potential adjustments?
+        - link "Michael Wilson 1 week ago Important Announcement Please join us for an all-hands meeting this Friday at 3 PM. We have some exciting news to share about the company's future." [ref=f2e91] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e92]:
+            - generic [ref=f2e93]: Michael Wilson
+            - generic [ref=f2e94]: 1 week ago
+          - generic [ref=f2e95]: Important Announcement
+          - generic [ref=f2e96]: Please join us for an all-hands meeting this Friday at 3 PM. We have some exciting news to share about the company's future.
+        - 'link "Sarah Brown 1 week ago Re: Feedback on Proposal Thank you for sending over the proposal. I''ve reviewed it and have some thoughts. Could we schedule a meeting to discuss my feedback in detail?" [ref=f2e97] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=f2e98]:
+            - generic [ref=f2e99]: Sarah Brown
+            - generic [ref=f2e100]: 1 week ago
+          - generic [ref=f2e101]: "Re: Feedback on Proposal"
+          - generic [ref=f2e102]: Thank you for sending over the proposal. I've reviewed it and have some thoughts. Could we schedule a meeting to discuss my feedback in detail?
+        - link "David Lee 1 week ago New Project Idea I've been brainstorming and came up with an interesting project concept. Do you have time this week to discuss its potential impact and feasibility?" [ref=f2e103] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e104]:
+            - generic [ref=f2e105]: David Lee
+            - generic [ref=f2e106]: 1 week ago
+          - generic [ref=f2e107]: New Project Idea
+          - generic [ref=f2e108]: I've been brainstorming and came up with an interesting project concept. Do you have time this week to discuss its potential impact and feasibility?
+        - link "Olivia Wilson 1 week ago Vacation Plans Just a heads up that I'll be taking a two-week vacation next month. I'll make sure all my projects are up to date before I leave." [ref=f2e109] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e110]:
+            - generic [ref=f2e111]: Olivia Wilson
+            - generic [ref=f2e112]: 1 week ago
+          - generic [ref=f2e113]: Vacation Plans
+          - generic [ref=f2e114]: Just a heads up that I'll be taking a two-week vacation next month. I'll make sure all my projects are up to date before I leave.
+        - 'link "James Martin 1 week ago Re: Conference Registration I''ve completed the registration for the upcoming tech conference. Let me know if you need any additional information from my end." [ref=f2e115] [cursor=pointer]':
+          - /url: "#"
+          - generic [ref=f2e116]:
+            - generic [ref=f2e117]: James Martin
+            - generic [ref=f2e118]: 1 week ago
+          - generic [ref=f2e119]: "Re: Conference Registration"
+          - generic [ref=f2e120]: I've completed the registration for the upcoming tech conference. Let me know if you need any additional information from my end.
+        - link "Sophia White 1 week ago Team Dinner To celebrate our recent project success, I'd like to organize a team dinner. Are you available next Friday evening? Please let me know your preferences." [ref=f2e121] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=f2e122]:
+            - generic [ref=f2e123]: Sophia White
+            - generic [ref=f2e124]: 1 week ago
+          - generic [ref=f2e125]: Team Dinner
+          - generic [ref=f2e126]: To celebrate our recent project success, I'd like to organize a team dinner. Are you available next Friday evening? Please let me know your preferences.
+  - main [ref=f2e127]:
+    - generic [ref=f2e129]:
+      - application "Interactive map of the Philippines" [ref=f2e130]:
+        - generic:
+          - button [ref=f2e132] [cursor=pointer]
+          - generic [ref=f2e134]:
+            - generic [ref=f2e136]:
+              - strong [ref=f2e137]: 📍 Epicenter (Demo)
+              - text: "Mayon Volcano, Albay 13.2543°N, 123.6857°E Radius:"
+              - strong [ref=f2e138]: 50 km
+            - button "Close popup" [ref=f2e140] [cursor=pointer]: ×
+        - generic [ref=f2e141]:
+          - link "Leaflet" [ref=f2e142] [cursor=pointer]:
+            - /url: https://leafletjs.com
+          - text: "| ©"
+          - link "Google" [ref=f2e147] [cursor=pointer]:
+            - /url: https://www.google.com/permissions/geoguidelines/
+          - text: Map data
+      - generic [ref=f2e148]:
+        - button "Zoom out" [ref=f2e149] [cursor=pointer]: −
+        - slider [ref=f2e150]: "6"
+        - button "Zoom in" [ref=f2e151] [cursor=pointer]: +

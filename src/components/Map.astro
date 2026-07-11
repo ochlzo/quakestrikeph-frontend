@@ -29,20 +29,12 @@ const {
 } = Astro.props;
 ---
 
-<!-- Leaflet CSS -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
-/>
-
 <div
   id={id}
   data-lat={lat}
   data-lng={lng}
   data-zoom={zoom}
-  style={`position: relative; height: ${height}; width: 100%; border-radius: 12px; overflow: hidden;`}
+  style={`position: relative; height: ${height}; width: 100%; overflow: hidden;`}
   aria-label="Interactive map of the Philippines"
   role="application"
 ></div>
@@ -116,4 +108,3 @@ const {
     });
   });
 </script>
-
