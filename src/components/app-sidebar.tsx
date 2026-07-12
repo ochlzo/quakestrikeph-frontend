@@ -15,6 +15,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
@@ -178,16 +179,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       >
         <SidebarHeader>
           <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem className="group/logo">
               <SidebarMenuButton
                 size="lg"
                 className="md:h-8 md:p-0"
                 render={<a href="#" aria-label="Home" />}
               >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-hover/logo:invisible">
                   <TerminalIcon className="size-4" />
                 </div>
               </SidebarMenuButton>
+              <SidebarTrigger className="absolute inset-0 m-auto opacity-0 group-hover/logo:opacity-100" />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>
