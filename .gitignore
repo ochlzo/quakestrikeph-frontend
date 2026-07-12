@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# ai-devtools
+.playwright-cli
+.codex
+.agents
