@@ -15,7 +15,8 @@ type MapPageShellProps = {
 export function MapPageShell({ children }: MapPageShellProps) {
   return (
     <TooltipProvider>
-      <SidebarProvider style={{ "--sidebar-width": "350px" } as CSSProperties}>
+      {/* Keep the parent sidebar open by default; when collapsed, it reduces to the gutter. */}
+      <SidebarProvider defaultOpen style={{ "--sidebar-width": "350px" } as CSSProperties}>
         <AppSidebar />
         <SidebarInset className="isolate flex h-svh min-w-0 flex-col overflow-hidden">
           <header className="relative z-10 flex h-12 shrink-0 items-center bg-background/95 px-4 backdrop-blur-sm">

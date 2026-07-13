@@ -12,6 +12,13 @@
 - `src/components/Map.astro` initializes Leaflet and loads the live event/prediction layer. Keep map overlays on the `leaflet:ready` event.
 - Do not reintroduce demo data as production map data. Preserve the existing mobile bounds and tile-buffer behavior unless intentionally changing map interaction.
 
+## Sidebar terminology
+
+- **Main sidebar**: the leftmost sidebar that collapses to the icon gutter. It is the map-filter sidebar and its toggle controls only this sidebar.
+- **Gutter**: the collapsed icon-only state of the main sidebar; it is not a separate sidebar.
+- **Uncollapsed main sidebar**: the gutter expanded into the main filter sidebar, never the nested sidebar.
+- **Nested sidebar**: a separate secondary panel beside the main sidebar. Keep its state and behavior independent unless the task explicitly targets it.
+
 ## Supabase
 
 - Browser client: `src/db/supabase.js`, using `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_KEY`. Only publishable keys may use the `PUBLIC_` prefix; `DATABASE_URL` is server-only.
