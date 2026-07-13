@@ -50,10 +50,29 @@ test("collects inclusive pages until the final short page", async () => {
 
 test("allows long date ranges but rejects reversed dates", () => {
   const from = new Date("2026-07-01T00:00:00.000Z")
-  assert.equal(validateDateRange({ from, to: new Date("2026-08-01T00:00:00.000Z") }), undefined)
+  const now = new Date("2026-09-01T00:00:00.000Z")
+  assert.equal(validateDateRange({ from, to: new Date("2026-08-01T00:00:00.000Z") }, now), undefined)
   assert.equal(
-    validateDateRange({ from, to: new Date("2026-06-30T23:59:59.999Z") }),
+    validateDateRange({ from, to: new Date("2026-06-30T23:59:59.999Z") }, now),
     "From date must be on or before To date."
+  )
+})
+
+test("rejects From or To dates after today", () => {
+  const now = new Date("2026-07-13T12:00:00.000Z")
+  assert.equal(
+    validateDateRange({
+      from: new Date("2026-07-14T00:00:00.000Z"),
+      to: new Date("2026-07-15T00:00:00.000Z"),
+    }, now),
+    "From date cannot be after today."
+  )
+  assert.equal(
+    validateDateRange({
+      from: new Date("2026-07-13T00:00:00.000Z"),
+      to: new Date("2026-07-15T00:00:00.000Z"),
+    }, now),
+    "To date cannot be after today."
   )
 })
 

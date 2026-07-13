@@ -5,6 +5,8 @@ import { Calendar } from "@/components/ui/calendar"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
+const EARLIEST_EVENT_MONTH = new Date(2018, 0)
+
 function formatDate(date?: Date) {
   return date
     ? date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" })
@@ -13,11 +15,13 @@ function formatDate(date?: Date) {
 
 export function DatePicker({
   value,
+  range,
   onSelect,
   invalid,
 }: {
   value?: Date
-  onSelect: (date?: Date) => void
+  range: { from?: Date; to?: Date }
+  onSelect: (range: { from?: Date; to?: Date }) => void
   invalid?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
@@ -33,11 +37,16 @@ export function DatePicker({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-1">
         <Calendar
-          mode="single"
-          selected={value}
-          onSelect={(date) => {
-            onSelect(date)
-            setOpen(false)
+          mode="range"
+          captionLayout="dropdown"
+          startMonth={EARLIEST_EVENT_MONTH}
+          endMonth={new Date()}
+          selected={range.from ? { from: range.from, to: range.to } : undefined}
+          disabled={{ after: new Date() }}
+          excludeDisabled
+          onSelect={(selection) => {
+            onSelect(selection ?? {})
+            if (selection?.from && selection.to) setOpen(false)
           }}
         />
       </PopoverContent>

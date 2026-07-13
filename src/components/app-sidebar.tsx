@@ -136,6 +136,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setSelectedDatePreset(preset);
   }
 
+  function selectDateRange(range: typeof dateRange) {
+    clearLimitError();
+    setSelectedDatePreset(null);
+    setDateRange({ from: range.from, to: endOfDay(range.to) });
+  }
+
   function toggleForecast(filter: ForecastFilterKey, option: string) {
     clearLimitError();
     setSelectedForecasts((current) => {
@@ -304,23 +310,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <DatePicker
                           invalid={Boolean(dateError)}
                           value={dateRange.from}
-                          onSelect={(from) => {
-                            clearLimitError();
-                            setSelectedDatePreset(null);
-                            setDateRange((current) => ({ ...current, from }));
-                          }}
+                          range={dateRange}
+                          onSelect={selectDateRange}
                         />
                         <DatePicker
                           invalid={Boolean(dateError)}
                           value={dateRange.to}
-                          onSelect={(to) => {
-                            clearLimitError();
-                            setSelectedDatePreset(null);
-                            setDateRange((current) => ({
-                              ...current,
-                              to: endOfDay(to),
-                            }));
-                          }}
+                          range={dateRange}
+                          onSelect={selectDateRange}
                         />
                       </div>
                       <div className="flex flex-wrap gap-1.5">

@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { Toaster } from '../components/ui/sonner';
 ---
 
 <!doctype html>
@@ -14,6 +15,7 @@ import '../styles/global.css';
 	</head>
 	<body>
 		<slot />
+		<Toaster client:load position="top-center" richColors />
 	</body>
 </html>
 
