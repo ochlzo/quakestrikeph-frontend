@@ -1,8 +1,15 @@
 "use client"
 
 import * as React from "react"
+import { CalendarIcon, TerminalIcon } from "lucide-react"
 
-import { NavUser } from "@/components/nav-user"
+import { validateFilters, type FilterErrors, type FilterKey, type Range } from "@/lib/filter-validation"
+import { Calendar } from "@/components/ui/calendar"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Sidebar,
   SidebarContent,
@@ -13,72 +20,274 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { InboxIcon, FileIcon, SendIcon, ArchiveXIcon, Trash2Icon, TerminalIcon } from "lucide-react"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    { title: "Inbox", icon: <InboxIcon /> },
-    { title: "Drafts", icon: <FileIcon /> },
-    { title: "Sent", icon: <SendIcon /> },
-    { title: "Junk", icon: <ArchiveXIcon /> },
-    { title: "Trash", icon: <Trash2Icon /> },
-  ],
+const initialFilters = {
+  magnitude: false,
+  depth: false,
+  date: false,
+}
+
+const initialRanges: Record<Exclude<FilterKey, "date">, Range> = {
+  magnitude: { from: "", to: "" },
+  depth: { from: "", to: "" },
+}
+
+const likelihoods = [
+  { id: "low", label: "LOW", className: "bg-emerald-600 text-white" },
+  { id: "medium", label: "MEDIUM", className: "bg-amber-700 text-white" },
+  { id: "high", label: "HIGH", className: "bg-destructive text-white" },
+] as const
+
+function formatDate(date?: Date) {
+  return date
+    ? date.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      })
+    : "mm/dd/yyyy"
+}
+
+function DatePicker({
+  value,
+  onSelect,
+  invalid,
+}: {
+  value?: Date
+  onSelect: (date?: Date) => void
+  invalid?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-invalid={invalid}
+        className="flex h-8 min-w-0 flex-1 items-center justify-between rounded-lg border border-input bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {formatDate(value)}
+        <CalendarIcon className="size-4 text-foreground" />
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-1">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={(date) => {
+            onSelect(date)
+            setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function FilterToggle({
+  checked,
+  label,
+  onCheckedChange,
+  error,
+  children,
+}: {
+  checked: boolean
+  label: string
+  onCheckedChange: (checked: boolean) => void
+  error?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="cursor-pointer text-sm">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onCheckedChange(event.target.checked)}
+          className="size-4 rounded border-input accent-primary"
+        />
+        {label}
+      </Label>
+      {checked ? (
+        <div className="space-y-2 pl-6">
+          {children}
+          {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [activeItem, setActiveItem] = React.useState(data.navMain[0])
+  const [filters, setFilters] = React.useState(initialFilters)
+  const [ranges, setRanges] = React.useState(initialRanges)
+  const [dateRange, setDateRange] = React.useState<{ from?: Date; to?: Date }>({})
+  const [validationErrors, setValidationErrors] = React.useState<FilterErrors>({})
+  const [selectedLikelihoods, setSelectedLikelihoods] = React.useState(
+    () => new Set(likelihoods.map((likelihood) => likelihood.id))
+  )
+
+  function setFilterEnabled(filter: FilterKey, enabled: boolean) {
+    setFilters((current) => ({ ...current, [filter]: enabled }))
+
+    if (!enabled && filter !== "date") {
+      setRanges((current) => ({ ...current, [filter]: { from: "", to: "" } }))
+    }
+
+    if (!enabled && filter === "date") {
+      setDateRange({})
+    }
+  }
+
+  function setRangeValue(filter: Exclude<FilterKey, "date">, field: keyof Range, value: string) {
+    setRanges((current) => ({
+      ...current,
+      [filter]: { ...current[filter], [field]: value },
+    }))
+  }
+
+  function applyDatePreset(days: number) {
+    const to = new Date()
+    const from = new Date(to)
+    from.setDate(from.getDate() - days)
+    setFilters((current) => ({ ...current, date: true }))
+    setDateRange({ from, to })
+  }
+
+  function toggleLikelihood(id: (typeof likelihoods)[number]["id"]) {
+    setSelectedLikelihoods((current) => {
+      const next = new Set(current)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function resetFilters() {
+    setFilters(initialFilters)
+    setRanges(initialRanges)
+    setDateRange({})
+    setValidationErrors({})
+    setSelectedLikelihoods(new Set(likelihoods.map((likelihood) => likelihood.id)))
+  }
+
+  function applyFilters() {
+    const errors = validateFilters(filters, ranges, dateRange)
+    setValidationErrors(errors)
+    if (Object.keys(errors).length) return
+
+    document.dispatchEvent(new CustomEvent("quakestrike:filters", {
+      detail: {
+        events: {
+          magnitude: filters.magnitude ? ranges.magnitude : null,
+          depth: filters.depth ? ranges.depth : null,
+          date: filters.date ? dateRange : null,
+        },
+        forecasts: {
+          likelihoods: [...selectedLikelihoods],
+        },
+      },
+    }))
+  }
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      {/* This is the main sidebar: it collapses to the gutter and starts expanded. */}
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem className="group/logo">
+          <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              className="md:h-8 md:pr-9 md:pl-0"
+              className="hover:bg-transparent hover:text-sidebar-foreground md:h-8 md:pl-0"
               render={<a href="#" aria-label="Home" />}
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-data-[collapsible=icon]:group-hover/logo:invisible">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TerminalIcon className="size-4" />
               </div>
               <span>QuakeStrike</span>
             </SidebarMenuButton>
-            {/* This trigger controls the main sidebar only; nested sidebar work is deferred. */}
-            <SidebarTrigger className="absolute top-1/2 right-1 -translate-y-1/2 opacity-100 group-data-[collapsible=icon]:inset-0 group-data-[collapsible=icon]:m-auto group-data-[collapsible=icon]:translate-y-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:group-hover/logo:opacity-100" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent className="px-1.5 md:px-0">
-            <SidebarMenu>
-              {data.navMain.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    tooltip={{ children: item.title, hidden: false }}
-                    onClick={() => setActiveItem(item)}
-                    isActive={activeItem.title === item.title}
-                    className="px-2.5 md:px-2"
+        <Accordion multiple defaultValue={["events", "forecasts"]}>
+          <AccordionItem value="events">
+            <SidebarGroup>
+              <AccordionTrigger className="px-2">Earthquake event filters</AccordionTrigger>
+              <AccordionContent className="pb-0">
+                <SidebarGroupContent className="space-y-5 px-2 pb-4 group-data-[collapsible=icon]:hidden">
+                  <FilterToggle
+                    label="Magnitude"
+                    checked={filters.magnitude}
+                    onCheckedChange={(enabled) => setFilterEnabled("magnitude", enabled)}
+                    error={validationErrors.magnitude}
                   >
-                    {item.icon}
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input aria-invalid={Boolean(validationErrors.magnitude)} type="number" min="0" step="0.1" placeholder="From" value={ranges.magnitude.from} onChange={(event) => setRangeValue("magnitude", "from", event.target.value)} />
+                      <Input aria-invalid={Boolean(validationErrors.magnitude)} type="number" min="0" step="0.1" placeholder="To" value={ranges.magnitude.to} onChange={(event) => setRangeValue("magnitude", "to", event.target.value)} />
+                    </div>
+                  </FilterToggle>
+
+                  <FilterToggle
+                    label="Depth (km)"
+                    checked={filters.depth}
+                    onCheckedChange={(enabled) => setFilterEnabled("depth", enabled)}
+                    error={validationErrors.depth}
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input aria-invalid={Boolean(validationErrors.depth)} type="number" min="0" step="1" placeholder="From" value={ranges.depth.from} onChange={(event) => setRangeValue("depth", "from", event.target.value)} />
+                      <Input aria-invalid={Boolean(validationErrors.depth)} type="number" min="0" step="1" placeholder="To" value={ranges.depth.to} onChange={(event) => setRangeValue("depth", "to", event.target.value)} />
+                    </div>
+                  </FilterToggle>
+
+                  <FilterToggle
+                    label="Date range"
+                    checked={filters.date}
+                    onCheckedChange={(enabled) => setFilterEnabled("date", enabled)}
+                    error={validationErrors.date}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <DatePicker invalid={Boolean(validationErrors.date)} value={dateRange.from} onSelect={(from) => setDateRange((current) => ({ ...current, from }))} />
+                        <DatePicker invalid={Boolean(validationErrors.date)} value={dateRange.to} onSelect={(to) => setDateRange((current) => ({ ...current, to }))} />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(1)}>Last 24h</Button>
+                        <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(7)}>Last 7 days</Button>
+                        <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(30)}>Last 30 days</Button>
+                      </div>
+                    </div>
+                  </FilterToggle>
+                </SidebarGroupContent>
+              </AccordionContent>
+            </SidebarGroup>
+          </AccordionItem>
+          <AccordionItem value="forecasts">
+            <SidebarGroup>
+              <AccordionTrigger className="px-2">Forecast filters</AccordionTrigger>
+              <AccordionContent className="pb-0">
+                <SidebarGroupContent className="space-y-2 px-2 pb-4 group-data-[collapsible=icon]:hidden">
+                  {likelihoods.map((likelihood) => (
+                    <Label key={likelihood.id} className="cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedLikelihoods.has(likelihood.id)}
+                        onChange={() => toggleLikelihood(likelihood.id)}
+                        className="size-4 rounded border-input accent-primary"
+                      />
+                      <span className={`rounded-sm px-2 py-0.5 text-xs font-semibold ${likelihood.className}`}>
+                        {likelihood.label}
+                      </span>
+                    </Label>
+                  ))}
+                </SidebarGroupContent>
+              </AccordionContent>
+            </SidebarGroup>
+          </AccordionItem>
+        </Accordion>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={data.user} />
+      <SidebarFooter className="border-t border-sidebar-border">
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" onClick={resetFilters}>Reset filters</Button>
+          <Button type="button" onClick={applyFilters}>Apply filters</Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
