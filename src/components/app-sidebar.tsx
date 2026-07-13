@@ -20,6 +20,7 @@ import {
 import {
   createDefaultMapFilters,
   endOfDay,
+  RESET_FILTERS_REQUEST_EVENT,
   toEventTime,
   type EarthquakeMapFilters,
 } from "@/lib/earthquake-map-filters";
@@ -118,6 +119,12 @@ export function AppSidebar({
     && (!Number.isFinite(parsedMinimumEstimatedStrongestAftershock) || parsedMinimumEstimatedStrongestAftershock < 0)
       ? "Enter a magnitude of 0 or higher."
       : undefined;
+
+  React.useEffect(() => {
+    const handleResetRequest = () => resetFilters();
+    document.addEventListener(RESET_FILTERS_REQUEST_EVENT, handleResetRequest);
+    return () => document.removeEventListener(RESET_FILTERS_REQUEST_EVENT, handleResetRequest);
+  }, []);
 
   function setFilterEnabled(filter: FilterKey, enabled: boolean) {
     clearLimitError();

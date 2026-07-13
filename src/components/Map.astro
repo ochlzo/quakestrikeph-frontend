@@ -46,8 +46,11 @@ const {
     FILTERS_COMPLETE_EVENT,
     FILTERS_REJECTED_EVENT,
     EARTHQUAKE_EVENTS_UPDATED_EVENT,
+    EARTHQUAKE_FOCUS_EVENT,
     EARTHQUAKE_SELECTED_EVENT,
+    FILTERS_ACTIVE_EVENT,
     MAX_MAP_EVENTS,
+    hasActiveMapFilters,
     magnitudeMarkerBand,
     type EarthquakeMapFilters,
   } from "../lib/earthquake-map-filters";
@@ -80,8 +83,13 @@ const {
     return icon;
   }
 
-  function renderEarthquakes(layer: L.LayerGroup, events: EarthquakeMarker[]) {
+  function renderEarthquakes(
+    layer: L.LayerGroup,
+    events: EarthquakeMarker[],
+    markerByEventId: Map<string, L.CircleMarker>,
+  ) {
     layer.clearLayers();
+    markerByEventId.clear();
     events.forEach((event) => {
       const popup = document.createElement("div");
       popup.className = "min-w-60 space-y-3 text-sm";
@@ -127,11 +135,13 @@ const {
       marker.on("click", () => {
         document.dispatchEvent(new CustomEvent(EARTHQUAKE_SELECTED_EVENT, { detail: event.id }));
       });
+      markerByEventId.set(event.id, marker);
     });
   }
 
   function setupEarthquakeLayer(map: L.Map) {
     const layer = L.layerGroup().addTo(map);
+    const markerByEventId = new Map<string, L.CircleMarker>();
     let requestId = 0;
 
     async function reload(filters?: EarthquakeMapFilters) {
@@ -140,8 +150,9 @@ const {
       try {
         const events = await getRecentEarthquakeMarkers(filters);
         if (currentRequest === requestId) {
-          renderEarthquakes(layer, events);
+          renderEarthquakes(layer, events, markerByEventId);
           document.dispatchEvent(new CustomEvent(EARTHQUAKE_EVENTS_UPDATED_EVENT, { detail: events }));
+          document.dispatchEvent(new CustomEvent(FILTERS_ACTIVE_EVENT, { detail: hasActiveMapFilters(filters) }));
         }
       } catch (error) {
         console.error("Unable to load earthquake events", error);
@@ -168,11 +179,22 @@ const {
     const handleFilters = (event: Event) => {
       void applyRequestedFilters((event as CustomEvent<EarthquakeMapFilters>).detail);
     };
+    const handleEarthquakeFocus = (event: Event) => {
+      const { id, latitude, longitude } = (event as CustomEvent<{
+        id: string;
+        latitude: number;
+        longitude: number;
+      }>).detail;
+      markerByEventId.get(id)?.openPopup();
+      map.flyTo([latitude, longitude], Math.max(map.getZoom(), 10), { duration: 0.5 });
+    };
 
     document.addEventListener("quakestrike:filters", handleFilters);
+    document.addEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
     map.once("unload", () => {
       requestId++;
       document.removeEventListener("quakestrike:filters", handleFilters);
+      document.removeEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
     });
     void reload();
   }
