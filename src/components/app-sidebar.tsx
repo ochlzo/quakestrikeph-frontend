@@ -4,6 +4,12 @@ import * as React from "react"
 import { CalendarIcon, TerminalIcon } from "lucide-react"
 
 import { validateFilters, type FilterErrors, type FilterKey, type Range } from "@/lib/filter-validation"
+import {
+  createDefaultForecastSelections,
+  FilterHelp,
+  ForecastFilterFields,
+  type ForecastFilterKey,
+} from "@/components/forecast-filter-fields"
 import { Calendar } from "@/components/ui/calendar"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
@@ -32,12 +38,6 @@ const initialRanges: Record<Exclude<FilterKey, "date">, Range> = {
   magnitude: { from: "", to: "" },
   depth: { from: "", to: "" },
 }
-
-const likelihoods = [
-  { id: "low", label: "LOW", className: "bg-emerald-600 text-white" },
-  { id: "medium", label: "MEDIUM", className: "bg-amber-700 text-white" },
-  { id: "high", label: "HIGH", className: "bg-destructive text-white" },
-] as const
 
 function formatDate(date?: Date) {
   return date
@@ -122,9 +122,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [ranges, setRanges] = React.useState(initialRanges)
   const [dateRange, setDateRange] = React.useState<{ from?: Date; to?: Date }>({})
   const [validationErrors, setValidationErrors] = React.useState<FilterErrors>({})
-  const [selectedLikelihoods, setSelectedLikelihoods] = React.useState(
-    () => new Set(likelihoods.map((likelihood) => likelihood.id))
-  )
+  const [selectedForecasts, setSelectedForecasts] = React.useState(createDefaultForecastSelections)
 
   function setFilterEnabled(filter: FilterKey, enabled: boolean) {
     setFilters((current) => ({ ...current, [filter]: enabled }))
@@ -153,11 +151,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setDateRange({ from, to })
   }
 
-  function toggleLikelihood(id: (typeof likelihoods)[number]["id"]) {
-    setSelectedLikelihoods((current) => {
-      const next = new Set(current)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
+  function toggleForecast(filter: ForecastFilterKey, option: string) {
+    setSelectedForecasts((current) => {
+      const selection = new Set(current[filter])
+      selection.has(option) ? selection.delete(option) : selection.add(option)
+      return { ...current, [filter]: selection }
     })
   }
 
@@ -166,7 +164,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setRanges(initialRanges)
     setDateRange({})
     setValidationErrors({})
-    setSelectedLikelihoods(new Set(likelihoods.map((likelihood) => likelihood.id)))
+    setSelectedForecasts(createDefaultForecastSelections())
   }
 
   function applyFilters() {
@@ -182,7 +180,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           date: filters.date ? dateRange : null,
         },
         forecasts: {
-          likelihoods: [...selectedLikelihoods],
+          aftershock24hLikelihoods: [...selectedForecasts.aftershock24hLikelihoods],
+          m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
+          distanceBands: [...selectedForecasts.distanceBands],
         },
       },
     }))
@@ -210,7 +210,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <Accordion multiple defaultValue={["events", "forecasts"]}>
           <AccordionItem value="events">
             <SidebarGroup>
-              <AccordionTrigger className="px-2">Earthquake event filters</AccordionTrigger>
+              <div className="flex items-center gap-1">
+                <AccordionTrigger className="min-w-0 flex-1 px-2">Earthquake event filters</AccordionTrigger>
+                <FilterHelp label="Earthquake event filters">
+                  Filter events by magnitude, depth, or date.
+                </FilterHelp>
+              </div>
               <AccordionContent className="pb-0">
                 <SidebarGroupContent className="space-y-5 px-2 pb-4 group-data-[collapsible=icon]:hidden">
                   <FilterToggle
@@ -263,20 +268,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroup>
               <AccordionTrigger className="px-2">Forecast filters</AccordionTrigger>
               <AccordionContent className="pb-0">
-                <SidebarGroupContent className="space-y-2 px-2 pb-4 group-data-[collapsible=icon]:hidden">
-                  {likelihoods.map((likelihood) => (
-                    <Label key={likelihood.id} className="cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedLikelihoods.has(likelihood.id)}
-                        onChange={() => toggleLikelihood(likelihood.id)}
-                        className="size-4 rounded border-input accent-primary"
-                      />
-                      <span className={`rounded-sm px-2 py-0.5 text-xs font-semibold ${likelihood.className}`}>
-                        {likelihood.label}
-                      </span>
-                    </Label>
-                  ))}
+                <SidebarGroupContent className="px-2 pb-4 group-data-[collapsible=icon]:hidden">
+                  <ForecastFilterFields selections={selectedForecasts} onToggle={toggleForecast} />
                 </SidebarGroupContent>
               </AccordionContent>
             </SidebarGroup>
