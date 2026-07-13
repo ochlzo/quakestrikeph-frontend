@@ -189,7 +189,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ...selectedForecasts.aftershock24hLikelihoods,
         ],
         m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
-        distanceBands: [...selectedForecasts.distanceBands],
       },
     };
 

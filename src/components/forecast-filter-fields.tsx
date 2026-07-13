@@ -2,12 +2,11 @@ import { CircleHelpIcon } from "lucide-react"
 
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { DISTANCE_BANDS, FORECAST_LIKELIHOODS } from "@/lib/earthquake-map-filters"
+import { FORECAST_LIKELIHOODS } from "@/lib/earthquake-map-filters"
 
 export type ForecastFilterKey =
   | "aftershock24hLikelihoods"
   | "m5PlusLikelihoods"
-  | "distanceBands"
 
 export type ForecastSelections = Record<ForecastFilterKey, Set<string>>
 
@@ -21,19 +20,11 @@ const likelihoodOptions = FORECAST_LIKELIHOODS.map((id) => ({
   label: id.toUpperCase(),
   className: likelihoodClassNames[id],
 }))
-const distanceLabels = {
-  within_10km: "Within 10 km",
-  between_10_25km: "10–25 km",
-  between_25_50km: "25–50 km",
-  beyond_50km: "Beyond 50 km",
-}
-
 const forecastFilterGroups: Array<{
   id: ForecastFilterKey
   label: string
   help: string
   options: Array<{ id: string; label: string; className?: string }>
-  description?: string
 }> = [
   {
     id: "aftershock24hLikelihoods",
@@ -46,13 +37,6 @@ const forecastFilterGroups: Array<{
     label: "M5+ aftershock likelihood",
     help: "Chance of an M5+ aftershock.",
     options: likelihoodOptions,
-  },
-  {
-    id: "distanceBands",
-    label: "Most likely aftershock distance",
-    help: "Distance band with the highest predicted probability.",
-    options: DISTANCE_BANDS.map((id) => ({ id, label: distanceLabels[id] })),
-    description: "Based on the highest predicted distance probability.",
   },
 ]
 
@@ -119,7 +103,6 @@ export function ForecastFilterFields({
               </span>
             </Label>
           ))}
-          {group.description ? <p className="text-xs text-muted-foreground">{group.description}</p> : null}
         </fieldset>
       ))}
     </div>

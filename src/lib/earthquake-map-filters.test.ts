@@ -6,24 +6,15 @@ import {
   collectPaginatedRows,
   createDefaultMapFilters,
   filterMarkersByForecast,
-  mostLikelyDistanceBand,
   toEventTime,
 } from "./earthquake-map-filters.ts"
 
-test("derives and filters forecast fields", () => {
-  assert.equal(mostLikelyDistanceBand({
-    within_10km: 0.1,
-    between_10_25km: 0.5,
-    between_25_50km: 0.3,
-    beyond_50km: 0.1,
-  }), "between_10_25km")
-
+test("filters forecast likelihoods", () => {
   const markers = [
     {
       id: "matching",
       aftershock24hLikelihoodLevel: "HIGH",
       m5PlusLikelihoodLevel: "low",
-      distanceBand: "within_10km" as const,
     },
     { id: "missing-prediction" },
   ]
@@ -32,7 +23,6 @@ test("derives and filters forecast fields", () => {
   assert.deepEqual(filterMarkersByForecast(markers, {
     aftershock24hLikelihoods: ["high"],
     m5PlusLikelihoods: ["low"],
-    distanceBands: ["within_10km"],
   }).map((marker) => marker.id), ["matching"])
 })
 

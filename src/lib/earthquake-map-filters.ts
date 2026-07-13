@@ -13,19 +13,10 @@ const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
   second: "2-digit",
   hourCycle: "h23",
 })
-export const DISTANCE_BANDS = [
-  "within_10km",
-  "between_10_25km",
-  "between_25_50km",
-  "beyond_50km",
-] as const
-
-export type DistanceBand = (typeof DISTANCE_BANDS)[number]
 export type FilterRange = { from: string; to: string }
 export type ForecastFilters = {
   aftershock24hLikelihoods: string[]
   m5PlusLikelihoods: string[]
-  distanceBands: string[]
 }
 export type EarthquakeMapFilters = {
   events: {
@@ -39,7 +30,6 @@ export type EarthquakeMapFilters = {
 type ForecastMarker = {
   aftershock24hLikelihoodLevel?: string | null
   m5PlusLikelihoodLevel?: string | null
-  distanceBand?: DistanceBand
 }
 
 export function createDefaultMapFilters(): EarthquakeMapFilters {
@@ -48,7 +38,6 @@ export function createDefaultMapFilters(): EarthquakeMapFilters {
     forecasts: {
       aftershock24hLikelihoods: [...FORECAST_LIKELIHOODS],
       m5PlusLikelihoods: [...FORECAST_LIKELIHOODS],
-      distanceBands: [...DISTANCE_BANDS],
     },
   }
 }
@@ -81,23 +70,6 @@ export async function collectPaginatedRows<T>(
   return rows
 }
 
-export function mostLikelyDistanceBand(
-  probabilities: Partial<Record<DistanceBand, number | null>>
-): DistanceBand | undefined {
-  let winner: DistanceBand | undefined
-  let highest = -Infinity
-
-  for (const band of DISTANCE_BANDS) {
-    const probability = probabilities[band]
-    if (typeof probability === "number" && Number.isFinite(probability) && probability > highest) {
-      winner = band
-      highest = probability
-    }
-  }
-
-  return winner
-}
-
 function matchesSelection(value: string | null | undefined, selected: string[], all: readonly string[]) {
   if (all.every((option) => selected.includes(option))) return true
   return Boolean(value && selected.includes(value.toLowerCase()))
@@ -107,6 +79,5 @@ export function filterMarkersByForecast<T extends ForecastMarker>(markers: T[], 
   return markers.filter((marker) =>
     matchesSelection(marker.aftershock24hLikelihoodLevel, filters.aftershock24hLikelihoods, FORECAST_LIKELIHOODS)
     && matchesSelection(marker.m5PlusLikelihoodLevel, filters.m5PlusLikelihoods, FORECAST_LIKELIHOODS)
-    && matchesSelection(marker.distanceBand, filters.distanceBands, DISTANCE_BANDS)
   )
 }

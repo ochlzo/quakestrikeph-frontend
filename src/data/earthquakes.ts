@@ -3,9 +3,7 @@ import {
   collectPaginatedRows,
   createDefaultMapFilters,
   filterMarkersByForecast,
-  mostLikelyDistanceBand,
   toEventTime,
-  type DistanceBand,
   type EarthquakeMapFilters,
 } from "../lib/earthquake-map-filters"
 
@@ -23,10 +21,6 @@ type Prediction = {
   event_id: string
   aftershock_24h_likelihood_level: string | null
   m5_plus_likelihood_level: string | null
-  within_10km: number | null
-  between_10_25km: number | null
-  between_25_50km: number | null
-  beyond_50km: number | null
 }
 
 export type EarthquakeMarker = {
@@ -36,7 +30,6 @@ export type EarthquakeMarker = {
   location: string | null
   aftershock24hLikelihoodLevel?: string | null
   m5PlusLikelihoodLevel?: string | null
-  distanceBand?: DistanceBand
 }
 
 function buildEventQuery(filters: EarthquakeMapFilters, countOnly = false) {
@@ -90,7 +83,7 @@ export async function getRecentEarthquakeMarkers(
       const ids = eventIds.slice(index * PREDICTION_BATCH_SIZE, (index + 1) * PREDICTION_BATCH_SIZE)
       const { data, error } = await supabase
           .from("SeisPredictions_v1")
-          .select("event_id,aftershock_24h_likelihood_level,m5_plus_likelihood_level,within_10km,between_10_25km,between_25_50km,beyond_50km")
+          .select("event_id,aftershock_24h_likelihood_level,m5_plus_likelihood_level")
           .in("event_id", ids)
       if (error) throw error
       return (data ?? []) as Prediction[]
@@ -111,7 +104,6 @@ export async function getRecentEarthquakeMarkers(
       location: event.Location,
       aftershock24hLikelihoodLevel: prediction?.aftershock_24h_likelihood_level,
       m5PlusLikelihoodLevel: prediction?.m5_plus_likelihood_level,
-      distanceBand: prediction ? mostLikelyDistanceBand(prediction) : undefined,
     }
   }), filters.forecasts)
 }
