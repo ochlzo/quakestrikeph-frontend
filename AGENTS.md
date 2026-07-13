@@ -15,17 +15,10 @@
 ## Supabase
 
 - Browser client: `src/db/supabase.js`, using `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_KEY`. Only publishable keys may use the `PUBLIC_` prefix; `DATABASE_URL` is server-only.
+- Use the Supabase client as the only application data-access layer. Do not add or use an ORM or server database client.
 - Schema reference: `.codex/supabase-schema.md`. Map data comes from `RawEarthquakeEvents`, with `SeisPredictions_v1.event_id -> RawEarthquakeEvents.id`.
 - Browser access is read-only: only events and predictions grant `SELECT` to `anon`/`authenticated`; keep `ScraperRuns` and `ProcessingJobs` private.
 - Put database changes in `supabase/migrations/`; apply with `DATABASE_URL`, then verify the policy and an anonymous read. The repo-scoped Supabase MCP is configured in `.codex/config.toml`.
-
-## Drizzle
-
-- Drizzle is a server-only schema/query layer: use `src/db/drizzle.ts` with `DATABASE_URL`; never import it into browser code.
-- `drizzle/schema.ts` and `drizzle/relations.ts` are generated snapshots. Refresh them with `pnpm run db:pull`, then validate with `pnpm run db:check`.
-- Supabase migrations remain the only schema-change path. Do not run Drizzle `generate`, `push`, or `migrate` here.
-- `postdb:pull` fixes a Drizzle Kit 0.31.10 identity-sequence quoting bug. Remove `scripts/normalize-drizzle-schema.mjs` after upgrading to a version that no longer needs it.
-- Do not configure `drizzle-kit mcp`: the installed stable Drizzle Kit does not provide that command.
 
 ## Guardrails
 

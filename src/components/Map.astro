@@ -41,61 +41,30 @@ const {
 
 <script>
   import L from "leaflet";
-  import { supabase } from "../db/supabase";
-
-  type EarthquakeEvent = {
-    id: string;
-    Latitude: number;
-    Longitude: number;
-    Magnitude: number;
-    Location: string | null;
-  };
-
-  type Prediction = {
-    event_id: string;
-    aftershock_24h_likelihood_level: string;
-  };
+  import { getRecentEarthquakeMarkers } from "../data/earthquakes";
 
   async function addEarthquakeLayer(map: L.Map) {
-    const { data: events, error: eventsError } = await supabase
-      .from("RawEarthquakeEvents")
-      .select("id,Latitude,Longitude,Magnitude,Location")
-      .order("event_time", { ascending: false, nullsFirst: false })
-      .limit(500);
+    let events;
 
-    if (eventsError) {
-      console.error("Unable to load earthquake events", eventsError);
+    try {
+      events = await getRecentEarthquakeMarkers();
+    } catch (error) {
+      console.error("Unable to load earthquake events", error);
       return;
     }
 
-    const earthquakeEvents = (events ?? []) as EarthquakeEvent[];
-    const eventIds = earthquakeEvents.map((event) => event.id);
-    const { data: predictions, error: predictionsError } = eventIds.length
-      ? await supabase
-          .from("SeisPredictions_v1")
-          .select("event_id,aftershock_24h_likelihood_level")
-          .in("event_id", eventIds)
-      : { data: [], error: null };
-
-    if (predictionsError) {
-      console.error("Unable to load earthquake predictions", predictionsError);
-    }
-
-    const predictionByEventId = new Map(
-      ((predictions ?? []) as Prediction[]).map((prediction) => [prediction.event_id, prediction])
-    );
-
-    earthquakeEvents.forEach((event) => {
-      const prediction = predictionByEventId.get(event.id);
+    events.forEach((event) => {
       const popup = document.createElement("div");
       popup.textContent = [
-        `M ${event.Magnitude.toFixed(1)}`,
-        event.Location ?? "Unknown location",
-        prediction ? `24h aftershock: ${prediction.aftershock_24h_likelihood_level}` : "No prediction",
+        `M ${event.magnitude.toFixed(1)}`,
+        event.location ?? "Unknown location",
+        event.aftershock24hLikelihoodLevel
+          ? `24h aftershock: ${event.aftershock24hLikelihoodLevel}`
+          : "No prediction",
       ].join(" • ");
 
-      L.circleMarker([event.Latitude, event.Longitude], {
-        radius: Math.max(4, event.Magnitude * 2),
+      L.circleMarker([event.latitude, event.longitude], {
+        radius: Math.max(4, event.magnitude * 2),
       })
         .addTo(map)
         .bindPopup(popup);
