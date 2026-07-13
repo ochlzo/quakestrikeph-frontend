@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Experiment from '../components/Experiment.astro';
 import Map from '../components/Map.astro';
+import MapInspector from '../components/MapInspector.astro';
 import ZoomSlider from '../components/ZoomSlider.astro';
 import { MapPageShell } from '../components/map-page-shell';
 ---
@@ -11,6 +12,7 @@ import { MapPageShell } from '../components/map-page-shell';
     <div class="relative h-full min-w-0 w-full overflow-hidden rounded-xl">
       <Map height="100%" />
       <ZoomSlider />
+      <!-- <MapInspector /> -->
     </div>
     <Experiment />
   </MapPageShell>

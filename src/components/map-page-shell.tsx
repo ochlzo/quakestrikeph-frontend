@@ -18,10 +18,10 @@ export function MapPageShell({ children }: MapPageShellProps) {
       <SidebarProvider style={{ "--sidebar-width": "350px" } as CSSProperties}>
         <AppSidebar />
         <SidebarInset className="isolate flex h-svh min-w-0 flex-col overflow-hidden">
-          <header className="relative z-10 flex h-16 shrink-0 items-center bg-background/95 px-4 backdrop-blur-sm">
-            <SidebarTrigger className="-ml-1" />
+          <header className="relative z-10 flex h-12 shrink-0 items-center bg-background/95 px-4 backdrop-blur-sm">
+            <SidebarTrigger className="-ml-1 md:hidden" />
           </header>
-          <div className="relative z-0 h-[calc(100svh-4rem)] min-h-0 overflow-hidden px-2 pb-2">
+          <div className="relative z-0 h-[calc(100svh-3rem)] min-h-0 overflow-hidden px-2 pb-2">
             {children}
           </div>
         </SidebarInset>
