@@ -2,6 +2,7 @@ import { CircleHelpIcon } from "lucide-react"
 
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { DISTANCE_BANDS, FORECAST_LIKELIHOODS } from "@/lib/earthquake-map-filters"
 
 export type ForecastFilterKey =
   | "aftershock24hLikelihoods"
@@ -10,11 +11,22 @@ export type ForecastFilterKey =
 
 export type ForecastSelections = Record<ForecastFilterKey, Set<string>>
 
-const likelihoodOptions = [
-  { id: "low", label: "LOW", className: "bg-emerald-600 text-white" },
-  { id: "medium", label: "MEDIUM", className: "bg-amber-700 text-white" },
-  { id: "high", label: "HIGH", className: "bg-destructive text-white" },
-]
+const likelihoodClassNames = {
+  low: "bg-emerald-600 text-white",
+  medium: "bg-amber-700 text-white",
+  high: "bg-destructive text-white",
+}
+const likelihoodOptions = FORECAST_LIKELIHOODS.map((id) => ({
+  id,
+  label: id.toUpperCase(),
+  className: likelihoodClassNames[id],
+}))
+const distanceLabels = {
+  within_10km: "Within 10 km",
+  between_10_25km: "10–25 km",
+  between_25_50km: "25–50 km",
+  beyond_50km: "Beyond 50 km",
+}
 
 const forecastFilterGroups: Array<{
   id: ForecastFilterKey
@@ -39,12 +51,7 @@ const forecastFilterGroups: Array<{
     id: "distanceBands",
     label: "Most likely aftershock distance",
     help: "Distance band with the highest predicted probability.",
-    options: [
-      { id: "within_10km", label: "Within 10 km" },
-      { id: "between_10_25km", label: "10–25 km" },
-      { id: "between_25_50km", label: "25–50 km" },
-      { id: "beyond_50km", label: "Beyond 50 km" },
-    ],
+    options: DISTANCE_BANDS.map((id) => ({ id, label: distanceLabels[id] })),
     description: "Based on the highest predicted distance probability.",
   },
 ]

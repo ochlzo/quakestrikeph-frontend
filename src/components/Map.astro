@@ -41,18 +41,16 @@ const {
 
 <script>
   import L from "leaflet";
-  import { getRecentEarthquakeMarkers } from "../data/earthquakes";
+  import { countEarthquakeEvents, getRecentEarthquakeMarkers, type EarthquakeMarker } from "../data/earthquakes";
+  import {
+    FILTERS_COMPLETE_EVENT,
+    FILTERS_REJECTED_EVENT,
+    MAX_MAP_EVENTS,
+    type EarthquakeMapFilters,
+  } from "../lib/earthquake-map-filters";
 
-  async function addEarthquakeLayer(map: L.Map) {
-    let events;
-
-    try {
-      events = await getRecentEarthquakeMarkers();
-    } catch (error) {
-      console.error("Unable to load earthquake events", error);
-      return;
-    }
-
+  function renderEarthquakes(layer: L.LayerGroup, events: EarthquakeMarker[]) {
+    layer.clearLayers();
     events.forEach((event) => {
       const popup = document.createElement("div");
       popup.textContent = [
@@ -66,9 +64,53 @@ const {
       L.circleMarker([event.latitude, event.longitude], {
         radius: Math.max(4, event.magnitude * 2),
       })
-        .addTo(map)
+        .addTo(layer)
         .bindPopup(popup);
     });
+  }
+
+  function setupEarthquakeLayer(map: L.Map) {
+    const layer = L.layerGroup().addTo(map);
+    let requestId = 0;
+
+    async function reload(filters?: EarthquakeMapFilters) {
+      const currentRequest = ++requestId;
+
+      try {
+        const events = await getRecentEarthquakeMarkers(filters);
+        if (currentRequest === requestId) renderEarthquakes(layer, events);
+      } catch (error) {
+        console.error("Unable to load earthquake events", error);
+      }
+    }
+
+    async function applyRequestedFilters(filters: EarthquakeMapFilters) {
+      try {
+        const count = await countEarthquakeEvents(filters);
+        if (count > MAX_MAP_EVENTS) {
+          document.dispatchEvent(new CustomEvent(FILTERS_REJECTED_EVENT, {
+            detail: { count, max: MAX_MAP_EVENTS },
+          }));
+          return;
+        }
+        await reload(filters);
+      } catch (error) {
+        console.error("Unable to apply earthquake filters", error);
+      } finally {
+        document.dispatchEvent(new Event(FILTERS_COMPLETE_EVENT));
+      }
+    }
+
+    const handleFilters = (event: Event) => {
+      void applyRequestedFilters((event as CustomEvent<EarthquakeMapFilters>).detail);
+    };
+
+    document.addEventListener("quakestrike:filters", handleFilters);
+    map.once("unload", () => {
+      requestId++;
+      document.removeEventListener("quakestrike:filters", handleFilters);
+    });
+    void reload();
   }
 
   // Fix missing default marker icons when bundled (Leaflet asset path issue).
@@ -129,7 +171,7 @@ const {
         '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
     }).addTo(map);
 
-    void addEarthquakeLayer(map);
+    setupEarthquakeLayer(map);
 
     // The sidebar changes this element's width without triggering a window
     // resize. Keep Leaflet's viewport in sync through the full transition so

@@ -1,21 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { CalendarIcon, TerminalIcon } from "lucide-react"
+import { LoaderCircleIcon, TerminalIcon, XIcon } from "lucide-react"
 
-import { validateFilters, type FilterErrors, type FilterKey, type Range } from "@/lib/filter-validation"
-import {
-  createDefaultForecastSelections,
-  FilterHelp,
-  ForecastFilterFields,
-  type ForecastFilterKey,
-} from "@/components/forecast-filter-fields"
-import { Calendar } from "@/components/ui/calendar"
+import { validateDateRange, validateFilters, type FilterErrors, type FilterKey, type Range } from "@/lib/filter-validation"
+import { createDefaultMapFilters, endOfDay, type EarthquakeMapFilters } from "@/lib/earthquake-map-filters"
+import { useFilterLoading } from "@/hooks/use-filter-loading"
+import { createDefaultForecastSelections, FilterHelp, ForecastFilterFields, type ForecastFilterKey } from "@/components/forecast-filter-fields"
+import { DatePicker, FilterToggle } from "@/components/sidebar-filter-fields"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Sidebar,
   SidebarContent,
@@ -39,92 +34,18 @@ const initialRanges: Record<Exclude<FilterKey, "date">, Range> = {
   depth: { from: "", to: "" },
 }
 
-function formatDate(date?: Date) {
-  return date
-    ? date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      })
-    : "mm/dd/yyyy"
-}
-
-function DatePicker({
-  value,
-  onSelect,
-  invalid,
-}: {
-  value?: Date
-  onSelect: (date?: Date) => void
-  invalid?: boolean
-}) {
-  const [open, setOpen] = React.useState(false)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        aria-invalid={invalid}
-        className="flex h-8 min-w-0 flex-1 items-center justify-between rounded-lg border border-input bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        {formatDate(value)}
-        <CalendarIcon className="size-4 text-foreground" />
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-1">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={(date) => {
-            onSelect(date)
-            setOpen(false)
-          }}
-        />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function FilterToggle({
-  checked,
-  label,
-  onCheckedChange,
-  error,
-  children,
-}: {
-  checked: boolean
-  label: string
-  onCheckedChange: (checked: boolean) => void
-  error?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-2">
-      <Label className="cursor-pointer text-sm">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => onCheckedChange(event.target.checked)}
-          className="size-4 rounded border-input accent-primary"
-        />
-        {label}
-      </Label>
-      {checked ? (
-        <div className="space-y-2 pl-6">
-          {children}
-          {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [filters, setFilters] = React.useState(initialFilters)
   const [ranges, setRanges] = React.useState(initialRanges)
   const [dateRange, setDateRange] = React.useState<{ from?: Date; to?: Date }>({})
   const [validationErrors, setValidationErrors] = React.useState<FilterErrors>({})
   const [selectedForecasts, setSelectedForecasts] = React.useState(createDefaultForecastSelections)
+  const { loadingAction, setLoadingAction, limitError, clearLimitError } = useFilterLoading()
+  const liveDateError = filters.date ? validateDateRange(dateRange) : undefined
+  const dateError = liveDateError ?? (dateRange.from && dateRange.to ? undefined : validationErrors.date)
 
   function setFilterEnabled(filter: FilterKey, enabled: boolean) {
+    clearLimitError()
     setFilters((current) => ({ ...current, [filter]: enabled }))
 
     if (!enabled && filter !== "date") {
@@ -137,6 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function setRangeValue(filter: Exclude<FilterKey, "date">, field: keyof Range, value: string) {
+    clearLimitError()
     setRanges((current) => ({
       ...current,
       [filter]: { ...current[filter], [field]: value },
@@ -144,6 +66,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function applyDatePreset(days: number) {
+    clearLimitError()
     const to = new Date()
     const from = new Date(to)
     from.setDate(from.getDate() - days)
@@ -152,6 +75,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function toggleForecast(filter: ForecastFilterKey, option: string) {
+    clearLimitError()
     setSelectedForecasts((current) => {
       const selection = new Set(current[filter])
       selection.has(option) ? selection.delete(option) : selection.add(option)
@@ -160,11 +84,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function resetFilters() {
+    clearLimitError()
     setFilters(initialFilters)
     setRanges(initialRanges)
     setDateRange({})
     setValidationErrors({})
     setSelectedForecasts(createDefaultForecastSelections())
+    setLoadingAction("reset")
+    document.dispatchEvent(new CustomEvent("quakestrike:filters", {
+      detail: createDefaultMapFilters(),
+    }))
   }
 
   function applyFilters() {
@@ -172,20 +101,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setValidationErrors(errors)
     if (Object.keys(errors).length) return
 
-    document.dispatchEvent(new CustomEvent("quakestrike:filters", {
-      detail: {
-        events: {
-          magnitude: filters.magnitude ? ranges.magnitude : null,
-          depth: filters.depth ? ranges.depth : null,
-          date: filters.date ? dateRange : null,
-        },
-        forecasts: {
-          aftershock24hLikelihoods: [...selectedForecasts.aftershock24hLikelihoods],
-          m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
-          distanceBands: [...selectedForecasts.distanceBands],
-        },
+    const detail: EarthquakeMapFilters = {
+      events: {
+        magnitude: filters.magnitude ? ranges.magnitude : null,
+        depth: filters.depth ? ranges.depth : null,
+        date: filters.date && dateRange.from && dateRange.to
+          ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
+          : null,
       },
-    }))
+      forecasts: {
+        aftershock24hLikelihoods: [...selectedForecasts.aftershock24hLikelihoods],
+        m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
+        distanceBands: [...selectedForecasts.distanceBands],
+      },
+    }
+
+    setLoadingAction("apply")
+    document.dispatchEvent(new CustomEvent("quakestrike:filters", { detail }))
   }
 
   return (
@@ -248,17 +180,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     label="Date range"
                     checked={filters.date}
                     onCheckedChange={(enabled) => setFilterEnabled("date", enabled)}
-                    error={validationErrors.date}
+                    error={dateError}
                   >
                     <div className="space-y-2">
                       <div className="flex gap-2">
-                        <DatePicker invalid={Boolean(validationErrors.date)} value={dateRange.from} onSelect={(from) => setDateRange((current) => ({ ...current, from }))} />
-                        <DatePicker invalid={Boolean(validationErrors.date)} value={dateRange.to} onSelect={(to) => setDateRange((current) => ({ ...current, to }))} />
+                        <DatePicker invalid={Boolean(dateError)} value={dateRange.from} onSelect={(from) => { clearLimitError(); setDateRange((current) => ({ ...current, from })) }} />
+                        <DatePicker invalid={Boolean(dateError)} value={dateRange.to} onSelect={(to) => { clearLimitError(); setDateRange((current) => ({ ...current, to: endOfDay(to) })) }} />
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(1)}>Last 24h</Button>
                         <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(7)}>Last 7 days</Button>
-                        <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(30)}>Last 30 days</Button>
+                        <Button type="button" variant="outline" size="xs" onClick={() => applyDatePreset(14)}>Last 2 weeks</Button>
                       </div>
                     </div>
                   </FilterToggle>
@@ -279,9 +211,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </Accordion>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
+        {limitError ? (
+          <div role="alert" className="relative rounded-lg border border-destructive/30 bg-destructive/10 p-3 pr-8 text-xs text-destructive shadow-md">
+            Too many events to display ({limitError.count.toLocaleString()}). Try M4+ events or a shorter date range.
+            <button type="button" aria-label="Dismiss filter warning" onClick={clearLimitError} className="absolute top-1.5 right-1.5 inline-flex size-6 items-center justify-center rounded-md text-destructive/70 hover:bg-destructive/15 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40">
+              <XIcon className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={resetFilters}>Reset filters</Button>
-          <Button type="button" onClick={applyFilters}>Apply filters</Button>
+          <Button type="button" variant="outline" disabled={Boolean(loadingAction)} aria-busy={loadingAction === "reset"} onClick={resetFilters}>{loadingAction === "reset" ? <LoaderCircleIcon data-icon="inline-start" className="animate-spin" /> : null}Reset filters</Button>
+          <Button type="button" disabled={Boolean(loadingAction || limitError || liveDateError)} aria-busy={loadingAction === "apply"} onClick={applyFilters}>{loadingAction === "apply" ? <LoaderCircleIcon data-icon="inline-start" className="animate-spin" /> : null}Apply filters</Button>
         </div>
       </SidebarFooter>
     </Sidebar>

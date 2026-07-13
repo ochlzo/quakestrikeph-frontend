@@ -3,6 +3,12 @@ export type NumericFilterKey = Exclude<FilterKey, "date">
 export type Range = { from: string; to: string }
 export type FilterErrors = Partial<Record<FilterKey, string>>
 
+export function validateDateRange(dateRange: { from?: Date; to?: Date }) {
+  if (!dateRange.from || !dateRange.to) return undefined
+  if (dateRange.from > dateRange.to) return "From date must be on or before To date."
+  return undefined
+}
+
 export function validateFilters(
   filters: Record<FilterKey, boolean>,
   ranges: Record<NumericFilterKey, Range>,
@@ -26,8 +32,9 @@ export function validateFilters(
   if (filters.date) {
     if (!dateRange.from || !dateRange.to) {
       errors.date = "Select both From and To dates."
-    } else if (dateRange.from > dateRange.to) {
-      errors.date = "From date must be on or before To date."
+    } else {
+      const dateError = validateDateRange(dateRange)
+      if (dateError) errors.date = dateError
     }
   }
 
