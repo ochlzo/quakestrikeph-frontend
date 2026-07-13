@@ -1,22 +1,25 @@
-## Development
+# QuakeStrike PH frontend
 
-When starting the dev server, use background mode:
+## Stack and checks
 
-```
-astro dev --background
-```
+- Astro 7 static site, React 19 islands, Tailwind 4, Leaflet, and `@supabase/supabase-js`.
+- Use `pnpm run build` before handoff. For local development: `astro dev --background`; manage it with `astro dev status|logs|stop`.
+- Keep changes small. Follow nearby Astro/React/Tailwind patterns and reuse `src/styles/global.css` tokens before adding local styling.
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+## Map
 
-## Documentation
+- The home page is `src/pages/index.astro`; `MapPageShell` owns the viewport shell and the inner rounded, overflow-hidden wrapper owns map clipping.
+- `src/components/Map.astro` initializes Leaflet and loads the live event/prediction layer. Keep map overlays on the `leaflet:ready` event.
+- Do not reintroduce demo data as production map data. Preserve the existing mobile bounds and tile-buffer behavior unless intentionally changing map interaction.
 
-Full documentation: https://docs.astro.build
+## Supabase
 
-Consult these guides before working on related tasks:
+- Browser client: `src/db/supabase.js`, using `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_KEY`. Only publishable keys may use the `PUBLIC_` prefix; `DATABASE_URL` is server-only.
+- Schema reference: `.codex/supabase-schema.md`. Map data comes from `RawEarthquakeEvents`, with `SeisPredictions_v1.event_id -> RawEarthquakeEvents.id`.
+- Browser access is read-only: only events and predictions grant `SELECT` to `anon`/`authenticated`; keep `ScraperRuns` and `ProcessingJobs` private.
+- Put database changes in `supabase/migrations/`; apply with `DATABASE_URL`, then verify the policy and an anonymous read. The repo-scoped Supabase MCP is configured in `.codex/config.toml`.
 
-- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
-- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
-- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
-- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
-- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
-- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+## Guardrails
+
+- Never expose `DATABASE_URL` or a service-role key to the browser or logs.
+- Treat database schema changes and RLS policies as production changes: inspect current schema/policies first and verify afterward.

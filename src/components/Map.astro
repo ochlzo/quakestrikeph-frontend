@@ -41,6 +41,66 @@ const {
 
 <script>
   import L from "leaflet";
+  import { supabase } from "../db/supabase";
+
+  type EarthquakeEvent = {
+    id: string;
+    Latitude: number;
+    Longitude: number;
+    Magnitude: number;
+    Location: string | null;
+  };
+
+  type Prediction = {
+    event_id: string;
+    aftershock_24h_likelihood_level: string;
+  };
+
+  async function addEarthquakeLayer(map: L.Map) {
+    const { data: events, error: eventsError } = await supabase
+      .from("RawEarthquakeEvents")
+      .select("id,Latitude,Longitude,Magnitude,Location")
+      .order("event_time", { ascending: false, nullsFirst: false })
+      .limit(500);
+
+    if (eventsError) {
+      console.error("Unable to load earthquake events", eventsError);
+      return;
+    }
+
+    const earthquakeEvents = (events ?? []) as EarthquakeEvent[];
+    const eventIds = earthquakeEvents.map((event) => event.id);
+    const { data: predictions, error: predictionsError } = eventIds.length
+      ? await supabase
+          .from("SeisPredictions_v1")
+          .select("event_id,aftershock_24h_likelihood_level")
+          .in("event_id", eventIds)
+      : { data: [], error: null };
+
+    if (predictionsError) {
+      console.error("Unable to load earthquake predictions", predictionsError);
+    }
+
+    const predictionByEventId = new Map(
+      ((predictions ?? []) as Prediction[]).map((prediction) => [prediction.event_id, prediction])
+    );
+
+    earthquakeEvents.forEach((event) => {
+      const prediction = predictionByEventId.get(event.id);
+      const popup = document.createElement("div");
+      popup.textContent = [
+        `M ${event.Magnitude.toFixed(1)}`,
+        event.Location ?? "Unknown location",
+        prediction ? `24h aftershock: ${prediction.aftershock_24h_likelihood_level}` : "No prediction",
+      ].join(" • ");
+
+      L.circleMarker([event.Latitude, event.Longitude], {
+        radius: Math.max(4, event.Magnitude * 2),
+      })
+        .addTo(map)
+        .bindPopup(popup);
+    });
+  }
 
   // Fix missing default marker icons when bundled (Leaflet asset path issue).
   delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -95,9 +155,12 @@ const {
     L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
       subdomains: ["0", "1", "2", "3"],
       maxZoom: 20,
+      keepBuffer: 4,
       attribution:
         '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
     }).addTo(map);
+
+    void addEarthquakeLayer(map);
 
     // The sidebar changes this element's width without triggering a window
     // resize. Keep Leaflet's viewport in sync through the full transition so
