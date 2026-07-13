@@ -41,16 +41,15 @@ const {
 
 <script>
   import L from "leaflet";
-  import { countEarthquakeEvents, getRecentEarthquakeMarkers, type EarthquakeMarker } from "../data/earthquakes";
+  import { getRecentEarthquakeMarkerPage, type EarthquakeMarker } from "../data/earthquakes";
   import {
     FILTERS_COMPLETE_EVENT,
-    FILTERS_REJECTED_EVENT,
     EARTHQUAKE_EVENTS_UPDATED_EVENT,
     EARTHQUAKE_FOCUS_EVENT,
+    EARTHQUAKE_LOAD_MORE_EVENT,
     EARTHQUAKE_RENDER_EVENTS_EVENT,
     EARTHQUAKE_SELECTED_EVENT,
     FILTERS_ACTIVE_EVENT,
-    MAX_MAP_EVENTS,
     countActiveMapFilters,
     magnitudeMarkerBand,
     type EarthquakeMapFilters,
@@ -144,15 +143,33 @@ const {
     const layer = L.layerGroup().addTo(map);
     const markerByEventId = new Map<string, L.CircleMarker>();
     let requestId = 0;
+    let activeFilters: EarthquakeMapFilters | undefined;
+    let events: EarthquakeMarker[] = [];
+    let nextOffset = 0;
+    let hasMore = false;
+    let atLimit = false;
+    let loadingMore = false;
+
+    function publishEvents() {
+      document.dispatchEvent(new CustomEvent(EARTHQUAKE_EVENTS_UPDATED_EVENT, {
+        detail: { events, hasMore, atLimit, loadingMore },
+      }));
+    }
 
     async function reload(filters?: EarthquakeMapFilters) {
       const currentRequest = ++requestId;
+      activeFilters = filters;
+      loadingMore = false;
 
       try {
-        const events = await getRecentEarthquakeMarkers(filters);
+        const page = await getRecentEarthquakeMarkerPage(filters);
         if (currentRequest === requestId) {
+          events = page.events;
+          nextOffset = page.nextOffset;
+          hasMore = page.hasMore;
+          atLimit = page.atLimit;
           renderEarthquakes(layer, events, markerByEventId);
-          document.dispatchEvent(new CustomEvent(EARTHQUAKE_EVENTS_UPDATED_EVENT, { detail: events }));
+          publishEvents();
           document.dispatchEvent(new CustomEvent(FILTERS_ACTIVE_EVENT, { detail: countActiveMapFilters(filters) }));
         }
       } catch (error) {
@@ -160,15 +177,32 @@ const {
       }
     }
 
+    async function loadMore() {
+      if (loadingMore || !hasMore || atLimit) return;
+      const currentRequest = requestId;
+      loadingMore = true;
+      publishEvents();
+
+      try {
+        const page = await getRecentEarthquakeMarkerPage(activeFilters, nextOffset);
+        if (currentRequest !== requestId) return;
+        events = [...events, ...page.events];
+        nextOffset = page.nextOffset;
+        hasMore = page.hasMore;
+        atLimit = page.atLimit;
+        renderEarthquakes(layer, events, markerByEventId);
+      } catch (error) {
+        console.error("Unable to load more earthquake events", error);
+      } finally {
+        if (currentRequest === requestId) {
+          loadingMore = false;
+          publishEvents();
+        }
+      }
+    }
+
     async function applyRequestedFilters(filters: EarthquakeMapFilters) {
       try {
-        const count = await countEarthquakeEvents(filters);
-        if (count > MAX_MAP_EVENTS) {
-          document.dispatchEvent(new CustomEvent(FILTERS_REJECTED_EVENT, {
-            detail: { count, max: MAX_MAP_EVENTS },
-          }));
-          return;
-        }
         await reload(filters);
       } catch (error) {
         console.error("Unable to apply earthquake filters", error);
@@ -205,11 +239,13 @@ const {
 
     document.addEventListener("quakestrike:filters", handleFilters);
     document.addEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
+    document.addEventListener(EARTHQUAKE_LOAD_MORE_EVENT, loadMore);
     document.addEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);
     map.once("unload", () => {
       requestId++;
       document.removeEventListener("quakestrike:filters", handleFilters);
       document.removeEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
+      document.removeEventListener(EARTHQUAKE_LOAD_MORE_EVENT, loadMore);
       document.removeEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);
     });
     void reload();

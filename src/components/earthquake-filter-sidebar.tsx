@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleXIcon, LoaderCircleIcon, XIcon } from "lucide-react"
+import { LoaderCircleIcon, XIcon } from "lucide-react"
 
 import { DatePicker, FilterToggle } from "@/components/sidebar-filter-fields"
 import { ForecastFilterFields } from "@/components/forecast-filter-fields"
@@ -15,14 +15,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   Sheet,
@@ -78,10 +70,7 @@ function FilterPanel({
                 <MagnitudeFilterField
                   value={state.selectedMagnitudes}
                   invalid={Boolean(state.validationErrors.magnitude)}
-                  onValueChange={(value) => {
-                    loading.clearLimitError()
-                    state.setSelectedMagnitudes(value)
-                  }}
+                  onValueChange={state.setSelectedMagnitudes}
                 />
               </FilterToggle>
 
@@ -164,15 +153,9 @@ function FilterPanel({
                 selections={state.selectedForecasts}
                 onToggle={state.toggleForecast}
                 minimumEstimatedStrongestAftershock={state.minimumEstimatedStrongestAftershock}
-                onMinimumEstimatedStrongestAftershockChange={(value) => {
-                  loading.clearLimitError()
-                  state.setMinimumEstimatedStrongestAftershock(value)
-                }}
+                onMinimumEstimatedStrongestAftershockChange={state.setMinimumEstimatedStrongestAftershock}
                 includeNoForecast={state.includeNoForecast}
-                onIncludeNoForecastChange={(checked) => {
-                  loading.clearLimitError()
-                  state.setIncludeNoForecast(checked)
-                }}
+                onIncludeNoForecastChange={state.setIncludeNoForecast}
                 magnitudeError={state.forecastMagnitudeError}
               />
             </AccordionContent>
@@ -180,12 +163,7 @@ function FilterPanel({
         </Accordion>
       </div>
 
-      <footer className="space-y-2 border-t border-sidebar-border p-2">
-        {loading.limitError ? (
-          <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-            Too many events to display ({loading.limitError.count.toLocaleString()}). Try M4+ events or a shorter date range.
-          </p>
-        ) : null}
+      <footer className="border-t border-sidebar-border p-2">
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" disabled={Boolean(loading.loadingAction)} onClick={resetFilters}>
             {loading.loadingAction === "reset" ? <LoaderCircleIcon className="animate-spin" /> : null}
@@ -193,7 +171,7 @@ function FilterPanel({
           </Button>
           <Button
             type="button"
-            disabled={Boolean(loading.loadingAction || loading.limitError || state.liveDateError)}
+            disabled={Boolean(loading.loadingAction || state.liveDateError)}
             onClick={applyFilters}
           >
             {loading.loadingAction === "apply" ? <LoaderCircleIcon className="animate-spin" /> : null}
@@ -202,23 +180,6 @@ function FilterPanel({
         </div>
       </footer>
 
-      <Dialog open={loading.limitDialogOpen} onOpenChange={loading.setLimitDialogOpen}>
-        <DialogContent className="ring-destructive/30" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <CircleXIcon className="size-4" /> Too many events to display
-            </DialogTitle>
-            <DialogDescription>
-              {loading.limitError
-                ? `The current filters match ${loading.limitError.count.toLocaleString()} events, above the ${loading.limitError.max.toLocaleString()}-event map limit.`
-                : "The current filters exceed the map limit."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="bg-popover px-4 py-2">
-            <Button type="button" size="sm" onClick={() => loading.setLimitDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

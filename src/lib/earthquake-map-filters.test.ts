@@ -8,10 +8,11 @@ import {
   parseCustomMagnitudeRanges,
 } from "./magnitude-ranges.ts"
 import {
-  collectPaginatedRows,
   countActiveMapFilters,
   createDefaultMapFilters,
+  filterMarkersByEvent,
   filterMarkersByForecast,
+  getPaginationState,
   hasActiveMapFilters,
   magnitudeMarkerBand,
   toEventTime,
@@ -51,16 +52,30 @@ test("filters forecast likelihoods", () => {
   }).map((marker) => marker.id), ["matching", "missing-prediction"])
 })
 
-test("collects inclusive pages until the final short page", async () => {
-  const source = Array.from({ length: 1201 }, (_, index) => index)
-  const calls: Array<[number, number]> = []
-  const rows = await collectPaginatedRows(async (from, to) => {
-    calls.push([from, to])
-    return source.slice(from, to + 1)
-  })
+test("filters search markers with active event filters", () => {
+  const markers = [
+    { id: "matching", magnitude: 4.5, depth: "20", eventTime: "2026-07-13T12:00:00" },
+    { id: "too-small", magnitude: 3.5, depth: "20", eventTime: "2026-07-13T12:00:00" },
+    { id: "too-deep", magnitude: 4.5, depth: "80", eventTime: "2026-07-13T12:00:00" },
+  ]
+  assert.deepEqual(filterMarkersByEvent(markers, {
+    magnitude: [{ from: 4, to: 5, upperExclusive: true }],
+    depth: { from: "0", to: "50" },
+    date: { from: "2026-07-13T00:00:00", to: "2026-07-13T23:59:59" },
+  }).map((marker) => marker.id), ["matching"])
+})
 
-  assert.equal(rows.length, 1201)
-  assert.deepEqual(calls, [[0, 499], [500, 999], [1000, 1499]])
+test("stops pagination at the map event limit", () => {
+  assert.deepEqual(getPaginationState(50, 50, true), {
+    nextOffset: 100,
+    hasMore: true,
+    atLimit: false,
+  })
+  assert.deepEqual(getPaginationState(1950, 50, true), {
+    nextOffset: 2000,
+    hasMore: false,
+    atLimit: true,
+  })
 })
 
 test("allows long date ranges but rejects reversed dates", () => {

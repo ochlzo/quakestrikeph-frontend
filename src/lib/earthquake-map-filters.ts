@@ -2,14 +2,14 @@ import type { MagnitudeRange } from "./magnitude-ranges"
 
 export const FORECAST_LIKELIHOODS = ["low", "medium", "high"] as const
 export const FILTERS_COMPLETE_EVENT = "quakestrike:filters-complete"
-export const FILTERS_REJECTED_EVENT = "quakestrike:filters-rejected"
 export const EARTHQUAKE_EVENTS_UPDATED_EVENT = "quakestrike:earthquake-events-updated"
 export const EARTHQUAKE_SELECTED_EVENT = "quakestrike:earthquake-selected"
 export const EARTHQUAKE_FOCUS_EVENT = "quakestrike:earthquake-focus"
 export const EARTHQUAKE_RENDER_EVENTS_EVENT = "quakestrike:earthquake-render-events"
+export const EARTHQUAKE_LOAD_MORE_EVENT = "quakestrike:earthquake-load-more"
 export const FILTERS_ACTIVE_EVENT = "quakestrike:filters-active"
 export const MAX_MAP_EVENTS = 2000
-export const MAP_PAGE_SIZE = 500
+export const MAP_PAGE_SIZE = 50
 const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Manila",
   year: "numeric",
@@ -41,6 +41,12 @@ type ForecastMarker = {
   aftershock24hLikelihoodLevel?: string | null
   m5PlusLikelihoodLevel?: string | null
   estimatedStrongestAftershock?: number | null
+}
+
+type EventMarker = {
+  magnitude: number
+  depth: number | string
+  eventTime?: string | null
 }
 
 export function createDefaultMapFilters(): EarthquakeMapFilters {
@@ -91,21 +97,13 @@ export function magnitudeMarkerBand(magnitude: number) {
   return "below-3"
 }
 
-export async function collectPaginatedRows<T>(
-  fetchPage: (from: number, to: number) => Promise<T[]>,
-  pageSize = MAP_PAGE_SIZE
-) {
-  const rows: T[] = []
-
-  while (rows.length < MAX_MAP_EVENTS) {
-    const from = rows.length
-    const to = Math.min(from + pageSize - 1, MAX_MAP_EVENTS - 1)
-    const page = await fetchPage(from, to)
-    rows.push(...page)
-    if (page.length < to - from + 1) break
+export function getPaginationState(offset: number, consumed: number, hasExtra: boolean) {
+  const nextOffset = Math.min(offset + consumed, MAX_MAP_EVENTS)
+  return {
+    nextOffset,
+    hasMore: hasExtra && nextOffset < MAX_MAP_EVENTS,
+    atLimit: nextOffset >= MAX_MAP_EVENTS,
   }
-
-  return rows
 }
 
 function matchesSelection(value: string | null | undefined, selected: string[], all: readonly string[]) {
@@ -121,5 +119,22 @@ export function filterMarkersByForecast<T extends ForecastMarker>(markers: T[], 
       && matchesSelection(marker.m5PlusLikelihoodLevel, filters.m5PlusLikelihoods, FORECAST_LIKELIHOODS)
       && (filters.minimumEstimatedStrongestAftershock === null
         || (marker.estimatedStrongestAftershock ?? -Infinity) >= filters.minimumEstimatedStrongestAftershock)
+  })
+}
+
+export function filterMarkersByEvent<T extends EventMarker>(markers: T[], filters: EarthquakeMapFilters["events"]) {
+  return markers.filter((marker) => {
+    const matchesMagnitude = !filters.magnitude || filters.magnitude.some(({ from, to, upperExclusive }) =>
+      marker.magnitude >= from
+      && (to === undefined || (upperExclusive ? marker.magnitude < to : marker.magnitude <= to))
+    )
+    const depth = Number(marker.depth)
+    const matchesDepth = !filters.depth
+      || (depth >= Number(filters.depth.from) && depth <= Number(filters.depth.to))
+    const matchesDate = !filters.date
+      || Boolean(marker.eventTime
+        && marker.eventTime >= filters.date.from
+        && marker.eventTime <= filters.date.to)
+    return matchesMagnitude && matchesDepth && matchesDate
   })
 }

@@ -55,7 +55,7 @@ export function parseCustomMagnitudeRanges(input: string) {
 }
 
 export function magnitudeSelectionsToRanges(values: string[]): MagnitudeRange[] {
-  return values.flatMap((value) => {
+  return values.flatMap<MagnitudeRange>((value) => {
     const preset = OPTION_BY_VALUE.get(value as (typeof MAGNITUDE_RANGE_OPTIONS)[number]["value"])
     if (preset) return [{ ...preset.range }]
 

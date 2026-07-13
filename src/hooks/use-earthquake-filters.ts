@@ -49,7 +49,6 @@ export function useEarthquakeFilters(onApplied: () => void) {
       : undefined
 
   function setFilterEnabled(filter: FilterKey, enabled: boolean) {
-    loading.clearLimitError()
     setFilters((current) => ({ ...current, [filter]: enabled }))
     if (!enabled && filter === "magnitude") setSelectedMagnitudes([])
     if (!enabled && filter === "depth") setRanges(initialRanges)
@@ -60,7 +59,6 @@ export function useEarthquakeFilters(onApplied: () => void) {
   }
 
   function setRangeValue(field: keyof Range, value: string) {
-    loading.clearLimitError()
     setRanges((current) => ({
       ...current,
       depth: { ...current.depth, [field]: value },
@@ -68,7 +66,6 @@ export function useEarthquakeFilters(onApplied: () => void) {
   }
 
   function applyDatePreset(preset: DatePreset, days = 0) {
-    loading.clearLimitError()
     const to = new Date()
     const from = new Date(to)
     preset === "today" ? from.setHours(0, 0, 0, 0) : from.setDate(from.getDate() - days)
@@ -78,13 +75,11 @@ export function useEarthquakeFilters(onApplied: () => void) {
   }
 
   function selectDateRange(range: typeof dateRange) {
-    loading.clearLimitError()
     setSelectedDatePreset(null)
     setDateRange({ from: range.from, to: endOfDay(range.to) })
   }
 
   function toggleForecast(filter: ForecastFilterKey, option: string) {
-    loading.clearLimitError()
     setSelectedForecasts((current) => {
       const selection = new Set(current[filter])
       selection.has(option) ? selection.delete(option) : selection.add(option)
@@ -93,7 +88,6 @@ export function useEarthquakeFilters(onApplied: () => void) {
   }
 
   function resetFilters() {
-    loading.clearLimitError()
     setFilters(initialFilters)
     setRanges(initialRanges)
     setDateRange({})

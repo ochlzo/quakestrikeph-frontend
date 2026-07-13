@@ -9,10 +9,12 @@ import { searchEarthquakeMarkers, type EarthquakeMarker } from "@/data/earthquak
 import {
   EARTHQUAKE_EVENTS_UPDATED_EVENT,
   EARTHQUAKE_FOCUS_EVENT,
+  EARTHQUAKE_LOAD_MORE_EVENT,
   EARTHQUAKE_RENDER_EVENTS_EVENT,
   EARTHQUAKE_SELECTED_EVENT,
+  createDefaultMapFilters,
   FILTERS_ACTIVE_EVENT,
-  FILTERS_REJECTED_EVENT,
+  type EarthquakeMapFilters,
 } from "@/lib/earthquake-map-filters"
 import {
   SidebarInset,
@@ -24,6 +26,12 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 type MapPageShellProps = { children: ReactNode }
 type SearchStatus = "idle" | "loading" | "ready" | "error"
+type FilteredEventState = {
+  events: EarthquakeMarker[]
+  hasMore: boolean
+  atLimit: boolean
+  loadingMore: boolean
+}
 
 function dispatchRenderedEvents(events: EarthquakeMarker[], fitBounds = false) {
   document.dispatchEvent(new CustomEvent(EARTHQUAKE_RENDER_EVENTS_EVENT, {
@@ -35,16 +43,25 @@ function MapPageContent({ children }: MapPageShellProps) {
   const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const [filterPanelOpen, setFilterPanelOpen] = React.useState(false)
   const [filteredEvents, setFilteredEvents] = React.useState<EarthquakeMarker[]>([])
+  const [filteredHasMore, setFilteredHasMore] = React.useState(false)
+  const [filteredAtLimit, setFilteredAtLimit] = React.useState(false)
+  const [filteredLoadingMore, setFilteredLoadingMore] = React.useState(false)
   const filteredEventsRef = React.useRef<EarthquakeMarker[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
   const [searchEvents, setSearchEvents] = React.useState<EarthquakeMarker[]>([])
   const [searchStatus, setSearchStatus] = React.useState<SearchStatus>("idle")
   const [searchError, setSearchError] = React.useState<string | null>(null)
+  const [searchOffset, setSearchOffset] = React.useState(0)
+  const [searchHasMore, setSearchHasMore] = React.useState(false)
+  const [searchAtLimit, setSearchAtLimit] = React.useState(false)
+  const [searchLoadingMore, setSearchLoadingMore] = React.useState(false)
   const [searchRetry, setSearchRetry] = React.useState(0)
   const searchRequest = React.useRef(0)
+  const searchLoadingMoreRef = React.useRef(false)
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null)
   const [selectionVersion, setSelectionVersion] = React.useState(0)
   const [activeFilterCount, setActiveFilterCount] = React.useState(0)
+  const [searchFilters, setSearchFilters] = React.useState(createDefaultMapFilters)
   const trimmedSearch = searchQuery.trim()
   const searchIsReady = trimmedSearch.length >= 3 && searchStatus === "ready"
   const visibleEvents = searchIsReady ? searchEvents : filteredEvents
@@ -59,20 +76,14 @@ function MapPageContent({ children }: MapPageShellProps) {
     setSelectionVersion((version) => version + 1)
   }, [])
 
-  const clearSearch = React.useCallback(() => {
-    searchRequest.current += 1
-    setSearchQuery("")
-    setSearchEvents([])
-    setSearchStatus("idle")
-    setSearchError(null)
-    dispatchRenderedEvents(filteredEventsRef.current)
-  }, [])
-
   React.useEffect(() => {
     const updateEvents = (event: Event) => {
-      const events = (event as CustomEvent<EarthquakeMarker[]>).detail
-      filteredEventsRef.current = events
-      setFilteredEvents(events)
+      const detail = (event as CustomEvent<FilteredEventState>).detail
+      filteredEventsRef.current = detail.events
+      setFilteredEvents(detail.events)
+      setFilteredHasMore(detail.hasMore)
+      setFilteredAtLimit(detail.atLimit)
+      setFilteredLoadingMore(detail.loadingMore)
     }
     const selectEvent = (event: Event) => {
       selectEarthquake((event as CustomEvent<string>).detail)
@@ -81,21 +92,19 @@ function MapPageContent({ children }: MapPageShellProps) {
     const updateFilterStatus = (event: Event) => {
       setActiveFilterCount((event as CustomEvent<number>).detail)
     }
-    const reopenRejectedFilters = () => {
-      if (!isMobile) return
-      setOpenMobile(false)
-      setFilterPanelOpen(true)
+    const updateSearchFilters = (event: Event) => {
+      setSearchFilters((event as CustomEvent<EarthquakeMapFilters>).detail)
     }
 
     document.addEventListener(EARTHQUAKE_EVENTS_UPDATED_EVENT, updateEvents)
     document.addEventListener(EARTHQUAKE_SELECTED_EVENT, selectEvent)
     document.addEventListener(FILTERS_ACTIVE_EVENT, updateFilterStatus)
-    document.addEventListener(FILTERS_REJECTED_EVENT, reopenRejectedFilters)
+    document.addEventListener("quakestrike:filters", updateSearchFilters)
     return () => {
       document.removeEventListener(EARTHQUAKE_EVENTS_UPDATED_EVENT, updateEvents)
       document.removeEventListener(EARTHQUAKE_SELECTED_EVENT, selectEvent)
       document.removeEventListener(FILTERS_ACTIVE_EVENT, updateFilterStatus)
-      document.removeEventListener(FILTERS_REJECTED_EVENT, reopenRejectedFilters)
+      document.removeEventListener("quakestrike:filters", updateSearchFilters)
     }
   }, [openMainSidebar, selectEarthquake])
 
@@ -105,20 +114,33 @@ function MapPageContent({ children }: MapPageShellProps) {
       setSearchEvents([])
       setSearchStatus("idle")
       setSearchError(null)
+      setSearchOffset(0)
+      setSearchHasMore(false)
+      setSearchAtLimit(false)
+      setSearchLoadingMore(false)
+      searchLoadingMoreRef.current = false
       dispatchRenderedEvents(filteredEventsRef.current)
       return
     }
 
     setSearchStatus("loading")
     setSearchError(null)
+    setSearchOffset(0)
+    setSearchHasMore(false)
+    setSearchAtLimit(false)
+    setSearchLoadingMore(false)
+    searchLoadingMoreRef.current = false
     dispatchRenderedEvents(filteredEventsRef.current)
     const timer = window.setTimeout(async () => {
       try {
-        const events = await searchEarthquakeMarkers(trimmedSearch)
+        const page = await searchEarthquakeMarkers(trimmedSearch, searchFilters)
         if (searchRequest.current !== requestId) return
-        setSearchEvents(events)
+        setSearchEvents(page.events)
+        setSearchOffset(page.nextOffset)
+        setSearchHasMore(page.hasMore)
+        setSearchAtLimit(page.atLimit)
         setSearchStatus("ready")
-        dispatchRenderedEvents(events, true)
+        dispatchRenderedEvents(page.events, true)
       } catch {
         if (searchRequest.current !== requestId) return
         setSearchStatus("error")
@@ -127,7 +149,7 @@ function MapPageContent({ children }: MapPageShellProps) {
     }, 300)
 
     return () => window.clearTimeout(timer)
-  }, [searchRetry, trimmedSearch])
+  }, [searchFilters, searchRetry, trimmedSearch])
 
   function openFilters() {
     if (isMobile) setOpenMobile(false)
@@ -140,7 +162,6 @@ function MapPageContent({ children }: MapPageShellProps) {
   }
 
   function filtersApplied() {
-    clearSearch()
     if (isMobile) {
       setFilterPanelOpen(false)
       setOpenMobile(true)
@@ -155,6 +176,38 @@ function MapPageContent({ children }: MapPageShellProps) {
     if (isMobile) setOpenMobile(false)
   }
 
+  async function loadMoreEvents() {
+    if (!searchIsReady) {
+      if (filteredHasMore && !filteredLoadingMore && !filteredAtLimit) {
+        document.dispatchEvent(new Event(EARTHQUAKE_LOAD_MORE_EVENT))
+      }
+      return
+    }
+    if (!searchHasMore || searchAtLimit || searchLoadingMoreRef.current) return
+
+    const requestId = searchRequest.current
+    searchLoadingMoreRef.current = true
+    setSearchLoadingMore(true)
+    setSearchError(null)
+    try {
+      const page = await searchEarthquakeMarkers(trimmedSearch, searchFilters, searchOffset)
+      if (searchRequest.current !== requestId) return
+      const events = [...searchEvents, ...page.events]
+      setSearchEvents(events)
+      setSearchOffset(page.nextOffset)
+      setSearchHasMore(page.hasMore)
+      setSearchAtLimit(page.atLimit)
+      dispatchRenderedEvents(events)
+    } catch {
+      if (searchRequest.current === requestId) {
+        setSearchError("Could not load more earthquake events.")
+      }
+    } finally {
+      searchLoadingMoreRef.current = false
+      if (searchRequest.current === requestId) setSearchLoadingMore(false)
+    }
+  }
+
   return (
     <>
       <AppSidebar
@@ -163,10 +216,15 @@ function MapPageContent({ children }: MapPageShellProps) {
         selectionVersion={selectionVersion}
         searchQuery={searchQuery}
         searchLoading={searchStatus === "loading"}
+        globalSearchActive={searchIsReady}
         searchError={searchError}
+        loadingMore={searchIsReady ? searchLoadingMore : filteredLoadingMore}
+        hasMore={searchIsReady ? searchHasMore : filteredHasMore}
+        atLimit={searchIsReady ? searchAtLimit : filteredAtLimit}
         activeFilterCount={activeFilterCount}
         onSearchQueryChange={setSearchQuery}
         onRetrySearch={() => setSearchRetry((value) => value + 1)}
+        onLoadMore={loadMoreEvents}
         onOpenFilters={openFilters}
         onSelectEvent={focusEarthquake}
       />
