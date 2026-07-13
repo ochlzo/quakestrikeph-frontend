@@ -1,524 +1,150 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import {
-  CircleXIcon,
-  ListIcon,
-  LoaderCircleIcon,
-  TerminalIcon,
-  XIcon,
-} from "lucide-react";
+import * as React from "react"
+import { SearchIcon, SlidersHorizontalIcon, TerminalIcon, XIcon } from "lucide-react"
 
-import {
-  validateDateRange,
-  validateFilters,
-  type FilterErrors,
-  type FilterKey,
-  type RangeFilterKey,
-  type Range,
-} from "@/lib/filter-validation";
-import {
-  createDefaultMapFilters,
-  endOfDay,
-  RESET_FILTERS_REQUEST_EVENT,
-  toEventTime,
-  type EarthquakeMapFilters,
-} from "@/lib/earthquake-map-filters";
-import { useFilterLoading } from "@/hooks/use-filter-loading";
-import {
-  createDefaultForecastSelections,
-  FilterHelp,
-  ForecastFilterFields,
-  type ForecastFilterKey,
-} from "@/components/forecast-filter-fields";
-import { DatePicker, FilterToggle } from "@/components/sidebar-filter-fields";
-import { MagnitudeFilterField } from "@/components/magnitude-filter-field";
-import {
-  MAGNITUDE_RANGE_OPTIONS,
-  magnitudeSelectionsToRanges,
-} from "@/lib/magnitude-ranges";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import type { EarthquakeMarker } from "@/data/earthquakes"
+import { MAGNITUDE_RANGE_OPTIONS } from "@/lib/magnitude-ranges"
+import { EarthquakeEventList } from "@/components/earthquake-list-sidebar"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"
 
-const initialFilters = {
-  magnitude: false,
-  depth: false,
-  date: false,
-};
-
-const initialRanges: Record<RangeFilterKey, Range> = {
-  depth: { from: "", to: "" },
-};
-type DatePreset = "today" | "24h" | "7d";
+type AppSidebarProps = {
+  events: EarthquakeMarker[]
+  selectedEventId: string | null
+  selectionVersion: number
+  searchQuery: string
+  searchLoading: boolean
+  searchError: string | null
+  activeFilterCount: number
+  onSearchQueryChange: (value: string) => void
+  onRetrySearch: () => void
+  onOpenFilters: () => void
+  onSelectEvent: (event: EarthquakeMarker) => void
+}
 
 export function AppSidebar({
-  earthquakeListOpen,
-  onToggleEarthquakeList,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  earthquakeListOpen: boolean;
-  onToggleEarthquakeList: () => void;
-}) {
-  const [filters, setFilters] = React.useState(initialFilters);
-  const [ranges, setRanges] = React.useState(initialRanges);
-  const [dateRange, setDateRange] = React.useState<{ from?: Date; to?: Date }>(
-    {},
-  );
-  const [selectedDatePreset, setSelectedDatePreset] =
-    React.useState<DatePreset | null>(null);
-  const [validationErrors, setValidationErrors] = React.useState<FilterErrors>(
-    {},
-  );
-  const [selectedForecasts, setSelectedForecasts] = React.useState(
-    createDefaultForecastSelections,
-  );
-  const [selectedMagnitudes, setSelectedMagnitudes] = React.useState<string[]>([]);
-  const [minimumEstimatedStrongestAftershock, setMinimumEstimatedStrongestAftershock] = React.useState("");
-  const [includeNoForecast, setIncludeNoForecast] = React.useState(true);
-  const {
-    loadingAction,
-    setLoadingAction,
-    limitError,
-    clearLimitError,
-    limitDialogOpen,
-    setLimitDialogOpen,
-  } = useFilterLoading();
-  const liveDateError = filters.date ? validateDateRange(dateRange) : undefined;
-  const dateError =
-    liveDateError ??
-    (dateRange.from && dateRange.to ? undefined : validationErrors.date);
-  const parsedMinimumEstimatedStrongestAftershock = minimumEstimatedStrongestAftershock === ""
-    ? null
-    : Number(minimumEstimatedStrongestAftershock);
-  const forecastMagnitudeError = parsedMinimumEstimatedStrongestAftershock !== null
-    && (!Number.isFinite(parsedMinimumEstimatedStrongestAftershock) || parsedMinimumEstimatedStrongestAftershock < 0)
-      ? "Enter a magnitude of 0 or higher."
-      : undefined;
-
-  React.useEffect(() => {
-    const handleResetRequest = () => resetFilters();
-    document.addEventListener(RESET_FILTERS_REQUEST_EVENT, handleResetRequest);
-    return () => document.removeEventListener(RESET_FILTERS_REQUEST_EVENT, handleResetRequest);
-  }, []);
-
-  function setFilterEnabled(filter: FilterKey, enabled: boolean) {
-    clearLimitError();
-    setFilters((current) => ({ ...current, [filter]: enabled }));
-
-    if (!enabled && filter === "magnitude") {
-      setSelectedMagnitudes([]);
-    }
-
-    if (!enabled && filter === "depth") {
-      setRanges(initialRanges);
-    }
-
-    if (!enabled && filter === "date") {
-      setDateRange({});
-      setSelectedDatePreset(null);
-    }
-  }
-
-  function setRangeValue(
-    filter: RangeFilterKey,
-    field: keyof Range,
-    value: string,
-  ) {
-    clearLimitError();
-    setRanges((current) => ({
-      ...current,
-      [filter]: { ...current[filter], [field]: value },
-    }));
-  }
-
-  function applyDatePreset(preset: DatePreset, days = 0) {
-    clearLimitError();
-    const to = new Date();
-    const from = new Date(to);
-    if (preset === "today") {
-      from.setHours(0, 0, 0, 0);
-    } else {
-      from.setDate(from.getDate() - days);
-    }
-    setFilters((current) => ({ ...current, date: true }));
-    setDateRange({ from, to: preset === "today" ? endOfDay(to) : to });
-    setSelectedDatePreset(preset);
-  }
-
-  function selectDateRange(range: typeof dateRange) {
-    clearLimitError();
-    setSelectedDatePreset(null);
-    setDateRange({ from: range.from, to: endOfDay(range.to) });
-  }
-
-  function toggleForecast(filter: ForecastFilterKey, option: string) {
-    clearLimitError();
-    setSelectedForecasts((current) => {
-      const selection = new Set(current[filter]);
-      selection.has(option) ? selection.delete(option) : selection.add(option);
-      return { ...current, [filter]: selection };
-    });
-  }
-
-  function resetFilters() {
-    clearLimitError();
-    setFilters(initialFilters);
-    setRanges(initialRanges);
-    setDateRange({});
-    setSelectedDatePreset(null);
-    setValidationErrors({});
-    setSelectedForecasts(createDefaultForecastSelections());
-    setSelectedMagnitudes([]);
-    setMinimumEstimatedStrongestAftershock("");
-    setIncludeNoForecast(true);
-    setLoadingAction("reset");
-    document.dispatchEvent(
-      new CustomEvent("quakestrike:filters", {
-        detail: createDefaultMapFilters(),
-      }),
-    );
-  }
-
-  function applyFilters() {
-    const magnitudeRanges = magnitudeSelectionsToRanges(selectedMagnitudes);
-    const errors = validateFilters(filters, ranges, dateRange, magnitudeRanges);
-    setValidationErrors(errors);
-    if (Object.keys(errors).length || forecastMagnitudeError) return;
-
-    const detail: EarthquakeMapFilters = {
-      events: {
-        magnitude: filters.magnitude ? magnitudeRanges : null,
-        depth: filters.depth ? ranges.depth : null,
-        date:
-          filters.date && dateRange.from && dateRange.to
-            ? {
-                from: toEventTime(dateRange.from),
-                to: toEventTime(dateRange.to),
-              }
-            : null,
-      },
-      forecasts: {
-        aftershock24hLikelihoods: [
-          ...selectedForecasts.aftershock24hLikelihoods,
-        ],
-        m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
-        minimumEstimatedStrongestAftershock: parsedMinimumEstimatedStrongestAftershock,
-        includeNoForecast,
-      },
-    };
-
-    setLoadingAction("apply");
-    document.dispatchEvent(new CustomEvent("quakestrike:filters", { detail }));
-  }
+  events,
+  selectedEventId,
+  selectionVersion,
+  searchQuery,
+  searchLoading,
+  searchError,
+  activeFilterCount,
+  onSearchQueryChange,
+  onRetrySearch,
+  onOpenFilters,
+  onSelectEvent,
+}: AppSidebarProps) {
+  const trimmedSearch = searchQuery.trim()
+  const isGlobalSearch = trimmedSearch.length >= 3 && !searchLoading && !searchError
+  const resultLabel = `${events.length.toLocaleString()} ${events.length === 1 ? "event" : "events"}`
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="hover:bg-transparent hover:text-sidebar-foreground md:h-8 md:pl-0"
-              render={<a href="#" aria-label="Home" />}
-            >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <SidebarMenuButton size="lg" tooltip="QuakeStrike PH" className="cursor-default hover:bg-transparent active:bg-transparent">
+              <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TerminalIcon className="size-4" />
-              </div>
-              <span>QuakeStrike PH</span>
+              </span>
+              <span className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">QuakeStrike PH</span>
+                <span className="truncate text-xs text-muted-foreground">Earthquake monitoring</span>
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-          <SidebarGroupContent className="space-y-2 px-2">
-            <section aria-labelledby="map-legend-title" className="space-y-2">
-              <h3 id="map-legend-title" className="text-sm font-medium">
-                Map legend
-              </h3>
-              <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {MAGNITUDE_RANGE_OPTIONS.map((option) => (
-                  <li key={option.value} className="flex items-center gap-2 text-sm">
-                    <span
-                      aria-hidden="true"
-                      className={`size-2.5 shrink-0 rounded-full ${option.colorClass}`}
-                    />
-                    {option.label}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                aria-expanded={earthquakeListOpen}
-                onClick={onToggleEarthquakeList}
-              >
-                <ListIcon />
-                View earthquake list
-              </Button>
-            </section>
+
+      <SidebarContent className="overflow-hidden group-data-[collapsible=icon]:hidden">
+        <SidebarGroup className="shrink-0 border-b border-sidebar-border">
+          <SidebarGroupLabel>Map legend</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+              {MAGNITUDE_RANGE_OPTIONS.map((option) => (
+                <li key={option.value} className="flex items-center gap-2">
+                  <span className={`size-2.5 rounded-full ${option.colorClass}`} aria-hidden="true" />
+                  <span>{option.label}</span>
+                </li>
+              ))}
+            </ul>
+            <Button type="button" variant="outline" className="mt-3 w-full justify-start" onClick={onOpenFilters}>
+              <SlidersHorizontalIcon />
+              Filter earthquakes
+              {activeFilterCount > 0 && (
+                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                  {activeFilterCount} active
+                </span>
+              )}
+            </Button>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <Accordion multiple defaultValue={["events", "forecasts"]}>
-          <AccordionItem value="events">
-            <SidebarGroup>
-              <AccordionTrigger className="px-2">
-                <span className="inline-flex items-center gap-1">
-                  Earthquake event filters
-                  <FilterHelp insideTrigger label="Earthquake event filters">
-                    Filter events by magnitude, depth, or date.
-                  </FilterHelp>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="pb-0">
-                <SidebarGroupContent className="space-y-5 px-2 pb-4 group-data-[collapsible=icon]:hidden">
-                  <FilterToggle
-                    label="Magnitude"
-                    checked={filters.magnitude}
-                    onCheckedChange={(enabled) =>
-                      setFilterEnabled("magnitude", enabled)
-                    }
-                    error={validationErrors.magnitude}
-                  >
-                    <MagnitudeFilterField
-                      value={selectedMagnitudes}
-                      invalid={Boolean(validationErrors.magnitude)}
-                      onValueChange={(value) => {
-                        clearLimitError();
-                        setSelectedMagnitudes(value);
-                      }}
-                    />
-                  </FilterToggle>
+        <SidebarGroup className="shrink-0 border-b border-sidebar-border pb-3">
+          <SidebarGroupLabel>Search earthquake locations</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="earthquake-location-search"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => onSearchQueryChange(event.target.value)}
+                placeholder="Search all locations"
+                className="px-9 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                  aria-label="Clear location search"
+                  onClick={() => onSearchQueryChange("")}
+                >
+                  <XIcon />
+                </Button>
+              )}
+            </div>
+            {trimmedSearch.length > 0 && trimmedSearch.length < 3 && (
+              <p className="mt-2 text-xs text-muted-foreground">Type at least 3 characters.</p>
+            )}
+            {isGlobalSearch && (
+              <p className="mt-2 text-xs text-muted-foreground">Showing matches from all earthquake events.</p>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-                  <FilterToggle
-                    label="Depth (km)"
-                    checked={filters.depth}
-                    onCheckedChange={(enabled) =>
-                      setFilterEnabled("depth", enabled)
-                    }
-                    error={validationErrors.depth}
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        aria-invalid={Boolean(validationErrors.depth)}
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder="From"
-                        value={ranges.depth.from}
-                        onChange={(event) =>
-                          setRangeValue("depth", "from", event.target.value)
-                        }
-                      />
-                      <Input
-                        aria-invalid={Boolean(validationErrors.depth)}
-                        type="number"
-                        min="0"
-                        step="1"
-                        placeholder="To"
-                        value={ranges.depth.to}
-                        onChange={(event) =>
-                          setRangeValue("depth", "to", event.target.value)
-                        }
-                      />
-                    </div>
-                  </FilterToggle>
-
-                  <FilterToggle
-                    label="Date range"
-                    checked={filters.date}
-                    onCheckedChange={(enabled) =>
-                      setFilterEnabled("date", enabled)
-                    }
-                    error={dateError}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <DatePicker
-                          invalid={Boolean(dateError)}
-                          value={dateRange.from}
-                          range={dateRange}
-                          onSelect={selectDateRange}
-                        />
-                        <DatePicker
-                          invalid={Boolean(dateError)}
-                          value={dateRange.to}
-                          range={dateRange}
-                          onSelect={selectDateRange}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Button
-                          type="button"
-                          variant={
-                            selectedDatePreset === "today"
-                              ? "default"
-                              : "outline"
-                          }
-                          size="xs"
-                          aria-pressed={selectedDatePreset === "today"}
-                          onClick={() => applyDatePreset("today")}
-                        >
-                          Today
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={
-                            selectedDatePreset === "24h" ? "default" : "outline"
-                          }
-                          size="xs"
-                          aria-pressed={selectedDatePreset === "24h"}
-                          onClick={() => applyDatePreset("24h", 1)}
-                        >
-                          Last 24h
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={
-                            selectedDatePreset === "7d" ? "default" : "outline"
-                          }
-                          size="xs"
-                          aria-pressed={selectedDatePreset === "7d"}
-                          onClick={() => applyDatePreset("7d", 7)}
-                        >
-                          Last 7 days
-                        </Button>
-                      </div>
-                    </div>
-                  </FilterToggle>
-                </SidebarGroupContent>
-              </AccordionContent>
-            </SidebarGroup>
-          </AccordionItem>
-          <AccordionItem value="forecasts">
-            <SidebarGroup>
-              <AccordionTrigger className="px-2">
-                Forecast filters
-              </AccordionTrigger>
-              <AccordionContent className="pb-0">
-                <SidebarGroupContent className="px-2 pb-4 group-data-[collapsible=icon]:hidden">
-                  <ForecastFilterFields
-                    selections={selectedForecasts}
-                    onToggle={toggleForecast}
-                    minimumEstimatedStrongestAftershock={minimumEstimatedStrongestAftershock}
-                    onMinimumEstimatedStrongestAftershockChange={(value) => {
-                      clearLimitError();
-                      setMinimumEstimatedStrongestAftershock(value);
-                    }}
-                    includeNoForecast={includeNoForecast}
-                    onIncludeNoForecastChange={(checked) => {
-                      clearLimitError();
-                      setIncludeNoForecast(checked);
-                    }}
-                    magnitudeError={forecastMagnitudeError}
-                  />
-                </SidebarGroupContent>
-              </AccordionContent>
-            </SidebarGroup>
-          </AccordionItem>
-        </Accordion>
-      </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border">
-        {limitError ? (
-          <div
-            role="alert"
-            className="relative rounded-lg border border-destructive/30 bg-destructive/10 p-3 pr-8 text-xs text-destructive shadow-md"
-          >
-            Too many events to display ({limitError.count.toLocaleString()}).
-            Try M4+ events or a shorter date range.
-            <button
-              type="button"
-              aria-label="Dismiss filter warning"
-              onClick={clearLimitError}
-              className="absolute top-1.5 right-1.5 inline-flex size-6 items-center justify-center rounded-md text-destructive/70 hover:bg-destructive/15 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
-            >
-              <XIcon className="size-3.5" />
-            </button>
+        <SidebarGroup className="min-h-0 flex-1 p-0">
+          <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+            <span>{isGlobalSearch ? "Search results" : "Current map results"}</span>
+            <span>{resultLabel}</span>
           </div>
-        ) : null}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={Boolean(loadingAction)}
-            aria-busy={loadingAction === "reset"}
-            onClick={resetFilters}
-          >
-            {loadingAction === "reset" ? (
-              <LoaderCircleIcon
-                data-icon="inline-start"
-                className="animate-spin"
-              />
-            ) : null}
-            Reset filters
-          </Button>
-          <Button
-            type="button"
-            disabled={Boolean(loadingAction || limitError || liveDateError)}
-            aria-busy={loadingAction === "apply"}
-            onClick={applyFilters}
-          >
-            {loadingAction === "apply" ? (
-              <LoaderCircleIcon
-                data-icon="inline-start"
-                className="animate-spin"
-              />
-            ) : null}
-            Apply filters
-          </Button>
-        </div>
-      </SidebarFooter>
-      <Dialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen}>
-        <DialogContent className="ring-destructive/30" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <CircleXIcon className="size-4" />
-              Too many events to display
-            </DialogTitle>
-            <DialogDescription>
-              {limitError
-                ? `The current filters match ${limitError.count.toLocaleString()} events, above the ${limitError.max.toLocaleString()}-event map limit. Try M4+ events or a shorter date range.`
-                : "The current filters exceed the map limit. Try M4+ events or a shorter date range."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="bg-popover px-4 py-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setLimitDialogOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <EarthquakeEventList
+            events={events}
+            selectedEventId={selectedEventId}
+            selectionVersion={selectionVersion}
+            loading={searchLoading}
+            error={searchError}
+            emptyMessage={isGlobalSearch ? "No matching earthquake locations found." : "No earthquakes match the current filters."}
+            onRetry={onRetrySearch}
+            onSelectEvent={onSelectEvent}
+          />
+        </SidebarGroup>
+      </SidebarContent>
     </Sidebar>
-  );
+  )
 }

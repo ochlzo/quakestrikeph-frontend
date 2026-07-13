@@ -6,8 +6,8 @@ export const FILTERS_REJECTED_EVENT = "quakestrike:filters-rejected"
 export const EARTHQUAKE_EVENTS_UPDATED_EVENT = "quakestrike:earthquake-events-updated"
 export const EARTHQUAKE_SELECTED_EVENT = "quakestrike:earthquake-selected"
 export const EARTHQUAKE_FOCUS_EVENT = "quakestrike:earthquake-focus"
+export const EARTHQUAKE_RENDER_EVENTS_EVENT = "quakestrike:earthquake-render-events"
 export const FILTERS_ACTIVE_EVENT = "quakestrike:filters-active"
-export const RESET_FILTERS_REQUEST_EVENT = "quakestrike:reset-filters-request"
 export const MAX_MAP_EVENTS = 2000
 export const MAP_PAGE_SIZE = 500
 const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
@@ -55,18 +55,22 @@ export function createDefaultMapFilters(): EarthquakeMapFilters {
   }
 }
 
-export function hasActiveMapFilters(filters?: EarthquakeMapFilters) {
-  if (!filters) return false
+export function countActiveMapFilters(filters?: EarthquakeMapFilters) {
+  if (!filters) return 0
 
-  return Boolean(
-    filters.events.magnitude
-    || filters.events.depth
-    || filters.events.date
-    || filters.forecasts.minimumEstimatedStrongestAftershock !== null
-    || !filters.forecasts.includeNoForecast
-    || !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.aftershock24hLikelihoods.includes(value))
-    || !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.m5PlusLikelihoods.includes(value))
-  )
+  return [
+    filters.events.magnitude,
+    filters.events.depth,
+    filters.events.date,
+    filters.forecasts.minimumEstimatedStrongestAftershock !== null,
+    !filters.forecasts.includeNoForecast,
+    !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.aftershock24hLikelihoods.includes(value)),
+    !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.m5PlusLikelihoods.includes(value)),
+  ].filter(Boolean).length
+}
+
+export function hasActiveMapFilters(filters?: EarthquakeMapFilters) {
+  return countActiveMapFilters(filters) > 0
 }
 
 export function endOfDay(date?: Date) {

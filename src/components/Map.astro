@@ -47,10 +47,11 @@ const {
     FILTERS_REJECTED_EVENT,
     EARTHQUAKE_EVENTS_UPDATED_EVENT,
     EARTHQUAKE_FOCUS_EVENT,
+    EARTHQUAKE_RENDER_EVENTS_EVENT,
     EARTHQUAKE_SELECTED_EVENT,
     FILTERS_ACTIVE_EVENT,
     MAX_MAP_EVENTS,
-    hasActiveMapFilters,
+    countActiveMapFilters,
     magnitudeMarkerBand,
     type EarthquakeMapFilters,
   } from "../lib/earthquake-map-filters";
@@ -152,7 +153,7 @@ const {
         if (currentRequest === requestId) {
           renderEarthquakes(layer, events, markerByEventId);
           document.dispatchEvent(new CustomEvent(EARTHQUAKE_EVENTS_UPDATED_EVENT, { detail: events }));
-          document.dispatchEvent(new CustomEvent(FILTERS_ACTIVE_EVENT, { detail: hasActiveMapFilters(filters) }));
+          document.dispatchEvent(new CustomEvent(FILTERS_ACTIVE_EVENT, { detail: countActiveMapFilters(filters) }));
         }
       } catch (error) {
         console.error("Unable to load earthquake events", error);
@@ -188,13 +189,28 @@ const {
       markerByEventId.get(id)?.openPopup();
       map.flyTo([latitude, longitude], Math.max(map.getZoom(), 10), { duration: 0.5 });
     };
+    const handleRenderedEvents = (event: Event) => {
+      const { events, fitBounds } = (event as CustomEvent<{
+        events: EarthquakeMarker[];
+        fitBounds?: boolean;
+      }>).detail;
+      renderEarthquakes(layer, events, markerByEventId);
+      if (fitBounds && events.length) {
+        map.fitBounds(
+          L.latLngBounds(events.map((item) => [item.latitude, item.longitude])),
+          { padding: [24, 24], maxZoom: 10 }
+        );
+      }
+    };
 
     document.addEventListener("quakestrike:filters", handleFilters);
     document.addEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
+    document.addEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);
     map.once("unload", () => {
       requestId++;
       document.removeEventListener("quakestrike:filters", handleFilters);
       document.removeEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
+      document.removeEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);
     });
     void reload();
   }

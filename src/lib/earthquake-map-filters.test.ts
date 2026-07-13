@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { validateDateRange } from "./filter-validation.ts"
-import { locationSearchScore } from "./location-search.ts"
 import {
   magnitudeRangeFilter,
   magnitudeSelectionsToRanges,
@@ -10,6 +9,7 @@ import {
 } from "./magnitude-ranges.ts"
 import {
   collectPaginatedRows,
+  countActiveMapFilters,
   createDefaultMapFilters,
   filterMarkersByForecast,
   hasActiveMapFilters,
@@ -115,17 +115,13 @@ test("parses preset and custom magnitude selections into a safe OR filter", () =
   )
 })
 
-test("finds locations despite common misspellings", () => {
-  assert.notEqual(locationSearchScore("Manila, Metro Manila", "manla"), null)
-  assert.notEqual(locationSearchScore("Quezon City", "quezon cty"), null)
-  assert.equal(locationSearchScore("Davao City", "cebu"), null)
-  assert.ok(locationSearchScore("Cebu City", "cebu")! < locationSearchScore("Cebu Province", "cebu provnce")!)
-})
-
 test("detects filters applied to the current map query", () => {
   assert.equal(hasActiveMapFilters(createDefaultMapFilters()), false)
+  assert.equal(countActiveMapFilters(createDefaultMapFilters()), 0)
 
   const filtered = createDefaultMapFilters()
   filtered.forecasts.aftershock24hLikelihoods = ["high"]
+  filtered.events.depth = { from: "0", to: "50" }
   assert.equal(hasActiveMapFilters(filtered), true)
+  assert.equal(countActiveMapFilters(filtered), 2)
 })

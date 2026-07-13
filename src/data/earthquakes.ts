@@ -73,36 +73,26 @@ export async function countEarthquakeEvents(filters: EarthquakeMapFilters) {
   return count ?? 0
 }
 
-export async function getRecentEarthquakeMarkers(
-  filters: EarthquakeMapFilters = createDefaultMapFilters()
-): Promise<EarthquakeMarker[]> {
-  const events = await collectPaginatedRows<EarthquakeEvent>(async (from, to) => {
-    const { data, error } = await buildEventQuery(filters)
-      .order("event_time", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: false })
-      .range(from, to)
-    if (error) throw error
-    return (data ?? []) as EarthquakeEvent[]
-  })
+async function toEarthquakeMarkers(events: EarthquakeEvent[]) {
   const eventIds = events.map((event) => event.id)
+  if (!eventIds.length) return []
+
   const predictionPages = await Promise.all(
     Array.from({ length: Math.ceil(eventIds.length / PREDICTION_BATCH_SIZE) }, async (_, index) => {
       const ids = eventIds.slice(index * PREDICTION_BATCH_SIZE, (index + 1) * PREDICTION_BATCH_SIZE)
       const { data, error } = await supabase
-          .from("SeisPredictions_v1")
-          .select("event_id,aftershock_24h_likelihood_level,m5_plus_likelihood_level,est_max_aftershock")
-          .in("event_id", ids)
+        .from("SeisPredictions_v1")
+        .select("event_id,aftershock_24h_likelihood_level,m5_plus_likelihood_level,est_max_aftershock")
+        .in("event_id", ids)
       if (error) throw error
       return (data ?? []) as Prediction[]
     })
   )
-  const predictions = predictionPages.flat()
-
   const predictionByEventId = new Map(
-    predictions.map((prediction) => [prediction.event_id, prediction])
+    predictionPages.flat().map((prediction) => [prediction.event_id, prediction])
   )
 
-  return filterMarkersByForecast(events.map((event) => {
+  return events.map((event) => {
     const prediction = predictionByEventId.get(event.id)
     return {
       id: event.id,
@@ -116,6 +106,29 @@ export async function getRecentEarthquakeMarkers(
       aftershock24hLikelihoodLevel: prediction?.aftershock_24h_likelihood_level,
       m5PlusLikelihoodLevel: prediction?.m5_plus_likelihood_level,
       estimatedStrongestAftershock: prediction?.est_max_aftershock,
-    }
-  }), filters.forecasts)
+    } satisfies EarthquakeMarker
+  })
+}
+
+export async function searchEarthquakeMarkers(query: string) {
+  const { data, error } = await supabase.rpc("search_earthquake_events", {
+    query_text: query,
+    result_limit: 50,
+  })
+  if (error) throw error
+  return toEarthquakeMarkers((data ?? []) as EarthquakeEvent[])
+}
+
+export async function getRecentEarthquakeMarkers(
+  filters: EarthquakeMapFilters = createDefaultMapFilters()
+): Promise<EarthquakeMarker[]> {
+  const events = await collectPaginatedRows<EarthquakeEvent>(async (from, to) => {
+    const { data, error } = await buildEventQuery(filters)
+      .order("event_time", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as EarthquakeEvent[]
+  })
+  return filterMarkersByForecast(await toEarthquakeMarkers(events), filters.forecasts)
 }
