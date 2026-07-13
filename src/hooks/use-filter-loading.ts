@@ -8,11 +8,13 @@ export type FilterLimitError = { count: number; max: number }
 export function useFilterLoading() {
   const [loadingAction, setLoadingAction] = React.useState<FilterAction | null>(null)
   const [limitError, setLimitError] = React.useState<FilterLimitError | null>(null)
+  const [limitDialogOpen, setLimitDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     const finishLoading = () => setLoadingAction(null)
     const rejectFilters = (event: Event) => {
       setLimitError((event as CustomEvent<FilterLimitError>).detail)
+      setLimitDialogOpen(true)
     }
     document.addEventListener(FILTERS_COMPLETE_EVENT, finishLoading)
     document.addEventListener(FILTERS_REJECTED_EVENT, rejectFilters)
@@ -22,5 +24,17 @@ export function useFilterLoading() {
     }
   }, [])
 
-  return { loadingAction, setLoadingAction, limitError, clearLimitError: () => setLimitError(null) }
+  function clearLimitError() {
+    setLimitError(null)
+    setLimitDialogOpen(false)
+  }
+
+  return {
+    loadingAction,
+    setLoadingAction,
+    limitError,
+    clearLimitError,
+    limitDialogOpen,
+    setLimitDialogOpen,
+  }
 }

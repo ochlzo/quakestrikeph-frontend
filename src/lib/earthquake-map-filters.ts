@@ -3,6 +3,16 @@ export const FILTERS_COMPLETE_EVENT = "quakestrike:filters-complete"
 export const FILTERS_REJECTED_EVENT = "quakestrike:filters-rejected"
 export const MAX_MAP_EVENTS = 2000
 export const MAP_PAGE_SIZE = 500
+const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Asia/Manila",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+})
 export const DISTANCE_BANDS = [
   "within_10km",
   "between_10_25km",
@@ -48,6 +58,10 @@ export function endOfDay(date?: Date) {
   const value = new Date(date)
   value.setHours(23, 59, 59, 999)
   return value
+}
+
+export function toEventTime(date: Date) {
+  return EVENT_TIME_FORMATTER.format(date).replace(" ", "T")
 }
 
 export async function collectPaginatedRows<T>(

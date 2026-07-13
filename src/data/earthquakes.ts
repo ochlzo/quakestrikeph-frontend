@@ -4,6 +4,7 @@ import {
   createDefaultMapFilters,
   filterMarkersByForecast,
   mostLikelyDistanceBand,
+  toEventTime,
   type DistanceBand,
   type EarthquakeMapFilters,
 } from "../lib/earthquake-map-filters"
@@ -41,12 +42,12 @@ export type EarthquakeMarker = {
 function buildEventQuery(filters: EarthquakeMapFilters, countOnly = false) {
   const now = new Date()
   const dateFrom = filters.events.date?.from
-    ?? new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-  const dateTo = filters.events.date?.to ?? now.toISOString()
+    ?? toEventTime(new Date(now.getTime() - 24 * 60 * 60 * 1000))
+  const dateTo = filters.events.date?.to ?? toEventTime(now)
   let query = supabase
     .from("RawEarthquakeEvents")
     .select(
-      countOnly ? "id" : "id,Latitude,Longitude,Magnitude,Location",
+      "id,Latitude,Longitude,Magnitude,Location",
       countOnly ? { count: "exact", head: true } : undefined
     )
     .gte("event_time", dateFrom)

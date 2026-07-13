@@ -7,6 +7,7 @@ import {
   createDefaultMapFilters,
   filterMarkersByForecast,
   mostLikelyDistanceBand,
+  toEventTime,
 } from "./earthquake-map-filters.ts"
 
 test("derives and filters forecast fields", () => {
@@ -54,4 +55,8 @@ test("allows long date ranges but rejects reversed dates", () => {
     validateDateRange({ from, to: new Date("2026-06-30T23:59:59.999Z") }),
     "From date must be on or before To date."
   )
+})
+
+test("formats event times as Philippine wall-clock timestamps", () => {
+  assert.equal(toEventTime(new Date("2026-07-12T16:00:00.000Z")), "2026-07-13T00:00:00")
 })
