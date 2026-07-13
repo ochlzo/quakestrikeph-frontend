@@ -3,6 +3,8 @@ import type { MagnitudeRange } from "./magnitude-ranges"
 export const FORECAST_LIKELIHOODS = ["low", "medium", "high"] as const
 export const FILTERS_COMPLETE_EVENT = "quakestrike:filters-complete"
 export const FILTERS_REJECTED_EVENT = "quakestrike:filters-rejected"
+export const EARTHQUAKE_EVENTS_UPDATED_EVENT = "quakestrike:earthquake-events-updated"
+export const EARTHQUAKE_SELECTED_EVENT = "quakestrike:earthquake-selected"
 export const MAX_MAP_EVENTS = 2000
 export const MAP_PAGE_SIZE = 500
 const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat("sv-SE", {

@@ -45,6 +45,8 @@ const {
   import {
     FILTERS_COMPLETE_EVENT,
     FILTERS_REJECTED_EVENT,
+    EARTHQUAKE_EVENTS_UPDATED_EVENT,
+    EARTHQUAKE_SELECTED_EVENT,
     MAX_MAP_EVENTS,
     magnitudeMarkerBand,
     type EarthquakeMapFilters,
@@ -116,12 +118,15 @@ const {
 
       popup.append(location, details, forecastStatus);
 
-      L.circleMarker([event.latitude, event.longitude], {
+      const marker = L.circleMarker([event.latitude, event.longitude], {
         className: `earthquake-marker earthquake-marker--magnitude-${magnitudeMarkerBand(event.magnitude)}`,
         radius: 6,
       })
         .addTo(layer)
         .bindPopup(popup, { minWidth: 260 });
+      marker.on("click", () => {
+        document.dispatchEvent(new CustomEvent(EARTHQUAKE_SELECTED_EVENT, { detail: event.id }));
+      });
     });
   }
 
@@ -134,7 +139,10 @@ const {
 
       try {
         const events = await getRecentEarthquakeMarkers(filters);
-        if (currentRequest === requestId) renderEarthquakes(layer, events);
+        if (currentRequest === requestId) {
+          renderEarthquakes(layer, events);
+          document.dispatchEvent(new CustomEvent(EARTHQUAKE_EVENTS_UPDATED_EVENT, { detail: events }));
+        }
       } catch (error) {
         console.error("Unable to load earthquake events", error);
       }

@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   CircleXIcon,
+  ListIcon,
   LoaderCircleIcon,
   TerminalIcon,
   XIcon,
@@ -74,7 +75,14 @@ const initialRanges: Record<RangeFilterKey, Range> = {
 };
 type DatePreset = "today" | "24h" | "7d";
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  earthquakeListOpen,
+  onToggleEarthquakeList,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  earthquakeListOpen: boolean;
+  onToggleEarthquakeList: () => void;
+}) {
   const [filters, setFilters] = React.useState(initialFilters);
   const [ranges, setRanges] = React.useState(initialRanges);
   const [dateRange, setDateRange] = React.useState<{ from?: Date; to?: Date }>(
@@ -257,6 +265,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </li>
                 ))}
               </ul>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                aria-expanded={earthquakeListOpen}
+                onClick={onToggleEarthquakeList}
+              >
+                <ListIcon />
+                View earthquake list
+              </Button>
             </section>
           </SidebarGroupContent>
         </SidebarGroup>

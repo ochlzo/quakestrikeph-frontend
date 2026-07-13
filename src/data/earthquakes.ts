@@ -28,6 +28,7 @@ type Prediction = {
 }
 
 export type EarthquakeMarker = {
+  id: string
   date: string
   latitude: number
   longitude: number
@@ -104,6 +105,7 @@ export async function getRecentEarthquakeMarkers(
   return filterMarkersByForecast(events.map((event) => {
     const prediction = predictionByEventId.get(event.id)
     return {
+      id: event.id,
       date: event["Date-Time"],
       latitude: event.Latitude,
       longitude: event.Longitude,
