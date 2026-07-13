@@ -49,16 +49,24 @@ const forecastFilterGroups: Array<{
   },
 ]
 
-export function FilterHelp({ label, children }: { label: string; children: string }) {
+export function FilterHelp({
+  label,
+  children,
+  insideTrigger = false,
+}: {
+  label: string
+  children: string
+  insideTrigger?: boolean
+}) {
+  const className = "inline-flex size-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
   return (
     <Tooltip>
       <TooltipTrigger
         render={
-          <button
-            type="button"
-            aria-label={`About ${label}`}
-            className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          insideTrigger
+            ? <span aria-hidden="true" className={className} />
+            : <button type="button" aria-label={`About ${label}`} className={className} />
         }
       >
         <CircleHelpIcon className="size-3.5" />

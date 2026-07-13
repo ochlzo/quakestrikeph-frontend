@@ -210,12 +210,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <Accordion multiple defaultValue={["events", "forecasts"]}>
           <AccordionItem value="events">
             <SidebarGroup>
-              <div className="flex items-center gap-1">
-                <AccordionTrigger className="min-w-0 flex-1 px-2">Earthquake event filters</AccordionTrigger>
-                <FilterHelp label="Earthquake event filters">
-                  Filter events by magnitude, depth, or date.
-                </FilterHelp>
-              </div>
+              <AccordionTrigger className="px-2">
+                <span className="inline-flex items-center gap-1">
+                  Earthquake event filters
+                  <FilterHelp insideTrigger label="Earthquake event filters">
+                    Filter events by magnitude, depth, or date.
+                  </FilterHelp>
+                </span>
+              </AccordionTrigger>
               <AccordionContent className="pb-0">
                 <SidebarGroupContent className="space-y-5 px-2 pb-4 group-data-[collapsible=icon]:hidden">
                   <FilterToggle
