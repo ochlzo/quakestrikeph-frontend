@@ -1,5 +1,6 @@
 import { CircleHelpIcon } from "lucide-react"
 
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { FORECAST_LIKELIHOODS } from "@/lib/earthquake-map-filters"
@@ -10,32 +11,23 @@ export type ForecastFilterKey =
 
 export type ForecastSelections = Record<ForecastFilterKey, Set<string>>
 
-const likelihoodClassNames = {
-  low: "bg-emerald-600 text-white",
-  medium: "bg-amber-700 text-white",
-  high: "bg-destructive text-white",
-}
 const likelihoodOptions = FORECAST_LIKELIHOODS.map((id) => ({
   id,
-  label: id.toUpperCase(),
-  className: likelihoodClassNames[id],
+  label: id,
 }))
 const forecastFilterGroups: Array<{
   id: ForecastFilterKey
   label: string
-  help: string
-  options: Array<{ id: string; label: string; className?: string }>
+  options: Array<{ id: string; label: string }>
 }> = [
   {
     id: "aftershock24hLikelihoods",
-    label: "24h aftershock likelihood",
-    help: "Chance of any aftershock within 24 hours.",
+    label: "Chance of any aftershock within 24 hours",
     options: likelihoodOptions,
   },
   {
     id: "m5PlusLikelihoods",
-    label: "M5+ aftershock likelihood",
-    help: "Chance of an M5+ aftershock.",
+    label: "Chance of a magnitude 5 or stronger aftershock",
     options: likelihoodOptions,
   },
 ]
@@ -76,20 +68,25 @@ export function createDefaultForecastSelections(): ForecastSelections {
 export function ForecastFilterFields({
   selections,
   onToggle,
+  minimumEstimatedStrongestAftershock,
+  onMinimumEstimatedStrongestAftershockChange,
+  includeNoForecast,
+  onIncludeNoForecastChange,
+  magnitudeError,
 }: {
   selections: ForecastSelections
   onToggle: (filter: ForecastFilterKey, option: string) => void
+  minimumEstimatedStrongestAftershock: string
+  onMinimumEstimatedStrongestAftershockChange: (value: string) => void
+  includeNoForecast: boolean
+  onIncludeNoForecastChange: (checked: boolean) => void
+  magnitudeError?: string
 }) {
   return (
     <div className="space-y-5">
       {forecastFilterGroups.map((group) => (
         <fieldset key={group.id} className="space-y-2">
-          <legend className="text-sm font-medium">
-            <span className="inline-flex items-center gap-1">
-              {group.label}
-              <FilterHelp label={group.label}>{group.help}</FilterHelp>
-            </span>
-          </legend>
+          <legend className="text-sm font-medium">{group.label}</legend>
           {group.options.map((option) => (
             <Label key={option.id} className="cursor-pointer">
               <input
@@ -98,13 +95,40 @@ export function ForecastFilterFields({
                 onChange={() => onToggle(group.id, option.id)}
                 className="size-4 rounded border-input accent-primary"
               />
-              <span className={option.className ? `rounded-sm px-2 py-0.5 text-xs font-semibold ${option.className}` : "text-sm"}>
-                {option.label}
-              </span>
+              <span className="text-sm capitalize">{option.label}</span>
             </Label>
           ))}
         </fieldset>
       ))}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Estimated strongest aftershock</legend>
+        <Label htmlFor="minimum-estimated-aftershock" className="font-normal">
+          Show M
+          <Input
+            id="minimum-estimated-aftershock"
+            type="number"
+            min="0"
+            step="0.1"
+            inputMode="decimal"
+            placeholder="4.0"
+            value={minimumEstimatedStrongestAftershock}
+            aria-invalid={Boolean(magnitudeError)}
+            onChange={(event) => onMinimumEstimatedStrongestAftershockChange(event.target.value)}
+            className="w-20"
+          />
+          or stronger
+        </Label>
+        {magnitudeError ? <p role="alert" className="text-xs text-destructive">{magnitudeError}</p> : null}
+      </fieldset>
+      <Label className="cursor-pointer leading-snug">
+        <input
+          type="checkbox"
+          checked={includeNoForecast}
+          onChange={(event) => onIncludeNoForecastChange(event.target.checked)}
+          className="size-4 shrink-0 rounded border-input accent-primary"
+        />
+        <span>Include earthquakes with no forecast available</span>
+      </Label>
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
   validateFilters,
   type FilterErrors,
   type FilterKey,
+  type RangeFilterKey,
   type Range,
 } from "@/lib/filter-validation";
 import {
@@ -29,6 +30,11 @@ import {
   type ForecastFilterKey,
 } from "@/components/forecast-filter-fields";
 import { DatePicker, FilterToggle } from "@/components/sidebar-filter-fields";
+import { MagnitudeFilterField } from "@/components/magnitude-filter-field";
+import {
+  MAGNITUDE_RANGE_OPTIONS,
+  magnitudeSelectionsToRanges,
+} from "@/lib/magnitude-ranges";
 import {
   Accordion,
   AccordionContent,
@@ -63,8 +69,7 @@ const initialFilters = {
   date: false,
 };
 
-const initialRanges: Record<Exclude<FilterKey, "date">, Range> = {
-  magnitude: { from: "", to: "" },
+const initialRanges: Record<RangeFilterKey, Range> = {
   depth: { from: "", to: "" },
 };
 type DatePreset = "today" | "24h" | "7d";
@@ -83,6 +88,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [selectedForecasts, setSelectedForecasts] = React.useState(
     createDefaultForecastSelections,
   );
+  const [selectedMagnitudes, setSelectedMagnitudes] = React.useState<string[]>([]);
+  const [minimumEstimatedStrongestAftershock, setMinimumEstimatedStrongestAftershock] = React.useState("");
+  const [includeNoForecast, setIncludeNoForecast] = React.useState(true);
   const {
     loadingAction,
     setLoadingAction,
@@ -95,13 +103,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const dateError =
     liveDateError ??
     (dateRange.from && dateRange.to ? undefined : validationErrors.date);
+  const parsedMinimumEstimatedStrongestAftershock = minimumEstimatedStrongestAftershock === ""
+    ? null
+    : Number(minimumEstimatedStrongestAftershock);
+  const forecastMagnitudeError = parsedMinimumEstimatedStrongestAftershock !== null
+    && (!Number.isFinite(parsedMinimumEstimatedStrongestAftershock) || parsedMinimumEstimatedStrongestAftershock < 0)
+      ? "Enter a magnitude of 0 or higher."
+      : undefined;
 
   function setFilterEnabled(filter: FilterKey, enabled: boolean) {
     clearLimitError();
     setFilters((current) => ({ ...current, [filter]: enabled }));
 
-    if (!enabled && filter !== "date") {
-      setRanges((current) => ({ ...current, [filter]: { from: "", to: "" } }));
+    if (!enabled && filter === "magnitude") {
+      setSelectedMagnitudes([]);
+    }
+
+    if (!enabled && filter === "depth") {
+      setRanges(initialRanges);
     }
 
     if (!enabled && filter === "date") {
@@ -111,7 +130,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function setRangeValue(
-    filter: Exclude<FilterKey, "date">,
+    filter: RangeFilterKey,
     field: keyof Range,
     value: string,
   ) {
@@ -159,6 +178,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setSelectedDatePreset(null);
     setValidationErrors({});
     setSelectedForecasts(createDefaultForecastSelections());
+    setSelectedMagnitudes([]);
+    setMinimumEstimatedStrongestAftershock("");
+    setIncludeNoForecast(true);
     setLoadingAction("reset");
     document.dispatchEvent(
       new CustomEvent("quakestrike:filters", {
@@ -168,13 +190,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   function applyFilters() {
-    const errors = validateFilters(filters, ranges, dateRange);
+    const magnitudeRanges = magnitudeSelectionsToRanges(selectedMagnitudes);
+    const errors = validateFilters(filters, ranges, dateRange, magnitudeRanges);
     setValidationErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length || forecastMagnitudeError) return;
 
     const detail: EarthquakeMapFilters = {
       events: {
-        magnitude: filters.magnitude ? ranges.magnitude : null,
+        magnitude: filters.magnitude ? magnitudeRanges : null,
         depth: filters.depth ? ranges.depth : null,
         date:
           filters.date && dateRange.from && dateRange.to
@@ -189,6 +212,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ...selectedForecasts.aftershock24hLikelihoods,
         ],
         m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
+        minimumEstimatedStrongestAftershock: parsedMinimumEstimatedStrongestAftershock,
+        includeNoForecast,
       },
     };
 
@@ -215,6 +240,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+          <SidebarGroupContent className="space-y-2 px-2">
+            <section aria-labelledby="map-legend-title" className="space-y-2">
+              <h3 id="map-legend-title" className="text-sm font-medium">
+                Map legend
+              </h3>
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {MAGNITUDE_RANGE_OPTIONS.map((option) => (
+                  <li key={option.value} className="flex items-center gap-2 text-sm">
+                    <span
+                      aria-hidden="true"
+                      className={`size-2.5 shrink-0 rounded-full ${option.colorClass}`}
+                    />
+                    {option.label}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <Accordion multiple defaultValue={["events", "forecasts"]}>
           <AccordionItem value="events">
             <SidebarGroup>
@@ -236,30 +282,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     }
                     error={validationErrors.magnitude}
                   >
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        aria-invalid={Boolean(validationErrors.magnitude)}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        placeholder="From"
-                        value={ranges.magnitude.from}
-                        onChange={(event) =>
-                          setRangeValue("magnitude", "from", event.target.value)
-                        }
-                      />
-                      <Input
-                        aria-invalid={Boolean(validationErrors.magnitude)}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        placeholder="To"
-                        value={ranges.magnitude.to}
-                        onChange={(event) =>
-                          setRangeValue("magnitude", "to", event.target.value)
-                        }
-                      />
-                    </div>
+                    <MagnitudeFilterField
+                      value={selectedMagnitudes}
+                      invalid={Boolean(validationErrors.magnitude)}
+                      onValueChange={(value) => {
+                        clearLimitError();
+                        setSelectedMagnitudes(value);
+                      }}
+                    />
                   </FilterToggle>
 
                   <FilterToggle
@@ -322,7 +352,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <div className="flex flex-wrap gap-1.5">
                         <Button
                           type="button"
-                          variant={selectedDatePreset === "today" ? "default" : "outline"}
+                          variant={
+                            selectedDatePreset === "today"
+                              ? "default"
+                              : "outline"
+                          }
                           size="xs"
                           aria-pressed={selectedDatePreset === "today"}
                           onClick={() => applyDatePreset("today")}
@@ -331,7 +365,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         </Button>
                         <Button
                           type="button"
-                          variant={selectedDatePreset === "24h" ? "default" : "outline"}
+                          variant={
+                            selectedDatePreset === "24h" ? "default" : "outline"
+                          }
                           size="xs"
                           aria-pressed={selectedDatePreset === "24h"}
                           onClick={() => applyDatePreset("24h", 1)}
@@ -340,7 +376,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         </Button>
                         <Button
                           type="button"
-                          variant={selectedDatePreset === "7d" ? "default" : "outline"}
+                          variant={
+                            selectedDatePreset === "7d" ? "default" : "outline"
+                          }
                           size="xs"
                           aria-pressed={selectedDatePreset === "7d"}
                           onClick={() => applyDatePreset("7d", 7)}
@@ -364,6 +402,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <ForecastFilterFields
                     selections={selectedForecasts}
                     onToggle={toggleForecast}
+                    minimumEstimatedStrongestAftershock={minimumEstimatedStrongestAftershock}
+                    onMinimumEstimatedStrongestAftershockChange={(value) => {
+                      clearLimitError();
+                      setMinimumEstimatedStrongestAftershock(value);
+                    }}
+                    includeNoForecast={includeNoForecast}
+                    onIncludeNoForecastChange={(checked) => {
+                      clearLimitError();
+                      setIncludeNoForecast(checked);
+                    }}
+                    magnitudeError={forecastMagnitudeError}
                   />
                 </SidebarGroupContent>
               </AccordionContent>

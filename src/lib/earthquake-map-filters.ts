@@ -1,3 +1,5 @@
+import type { MagnitudeRange } from "./magnitude-ranges"
+
 export const FORECAST_LIKELIHOODS = ["low", "medium", "high"] as const
 export const FILTERS_COMPLETE_EVENT = "quakestrike:filters-complete"
 export const FILTERS_REJECTED_EVENT = "quakestrike:filters-rejected"
@@ -17,10 +19,12 @@ export type FilterRange = { from: string; to: string }
 export type ForecastFilters = {
   aftershock24hLikelihoods: string[]
   m5PlusLikelihoods: string[]
+  minimumEstimatedStrongestAftershock: number | null
+  includeNoForecast: boolean
 }
 export type EarthquakeMapFilters = {
   events: {
-    magnitude: FilterRange | null
+    magnitude: MagnitudeRange[] | null
     depth: FilterRange | null
     date: FilterRange | null
   }
@@ -28,8 +32,10 @@ export type EarthquakeMapFilters = {
 }
 
 type ForecastMarker = {
+  hasForecast: boolean
   aftershock24hLikelihoodLevel?: string | null
   m5PlusLikelihoodLevel?: string | null
+  estimatedStrongestAftershock?: number | null
 }
 
 export function createDefaultMapFilters(): EarthquakeMapFilters {
@@ -38,6 +44,8 @@ export function createDefaultMapFilters(): EarthquakeMapFilters {
     forecasts: {
       aftershock24hLikelihoods: [...FORECAST_LIKELIHOODS],
       m5PlusLikelihoods: [...FORECAST_LIKELIHOODS],
+      minimumEstimatedStrongestAftershock: null,
+      includeNoForecast: true,
     },
   }
 }
@@ -51,6 +59,13 @@ export function endOfDay(date?: Date) {
 
 export function toEventTime(date: Date) {
   return EVENT_TIME_FORMATTER.format(date).replace(" ", "T")
+}
+
+export function magnitudeMarkerBand(magnitude: number) {
+  if (magnitude >= 5) return "5-plus"
+  if (magnitude >= 4) return "4"
+  if (magnitude >= 3) return "3"
+  return "below-3"
 }
 
 export async function collectPaginatedRows<T>(
@@ -76,8 +91,12 @@ function matchesSelection(value: string | null | undefined, selected: string[], 
 }
 
 export function filterMarkersByForecast<T extends ForecastMarker>(markers: T[], filters: ForecastFilters) {
-  return markers.filter((marker) =>
-    matchesSelection(marker.aftershock24hLikelihoodLevel, filters.aftershock24hLikelihoods, FORECAST_LIKELIHOODS)
-    && matchesSelection(marker.m5PlusLikelihoodLevel, filters.m5PlusLikelihoods, FORECAST_LIKELIHOODS)
-  )
+  return markers.filter((marker) => {
+    if (!marker.hasForecast) return filters.includeNoForecast
+
+    return matchesSelection(marker.aftershock24hLikelihoodLevel, filters.aftershock24hLikelihoods, FORECAST_LIKELIHOODS)
+      && matchesSelection(marker.m5PlusLikelihoodLevel, filters.m5PlusLikelihoods, FORECAST_LIKELIHOODS)
+      && (filters.minimumEstimatedStrongestAftershock === null
+        || (marker.estimatedStrongestAftershock ?? -Infinity) >= filters.minimumEstimatedStrongestAftershock)
+  })
 }

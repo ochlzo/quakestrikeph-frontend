@@ -46,26 +46,82 @@ const {
     FILTERS_COMPLETE_EVENT,
     FILTERS_REJECTED_EVENT,
     MAX_MAP_EVENTS,
+    magnitudeMarkerBand,
     type EarthquakeMapFilters,
   } from "../lib/earthquake-map-filters";
+
+  function addEventDetail(
+    list: HTMLDListElement,
+    label: string,
+    value: string,
+  ) {
+    const term = document.createElement("dt");
+    term.className = "text-muted-foreground";
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.className = "text-left font-medium";
+    detail.textContent = value;
+    list.append(term, detail);
+  }
+
+  function createCloudAlertIcon() {
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.classList.add("size-4", "shrink-0");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("fill", "none");
+    icon.setAttribute("stroke", "currentColor");
+    icon.setAttribute("stroke-width", "2");
+    icon.setAttribute("stroke-linecap", "round");
+    icon.setAttribute("stroke-linejoin", "round");
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = '<path d="M12 12v4"/><path d="M12 20h.01"/><path d="M8.128 16.949A7 7 0 1 1 15.71 8h1.79a1 1 0 0 1 0 9h-1.642"/>';
+    return icon;
+  }
 
   function renderEarthquakes(layer: L.LayerGroup, events: EarthquakeMarker[]) {
     layer.clearLayers();
     events.forEach((event) => {
       const popup = document.createElement("div");
-      popup.textContent = [
-        `M ${event.magnitude.toFixed(1)}`,
-        event.location ?? "Unknown location",
-        event.aftershock24hLikelihoodLevel
-          ? `24h aftershock: ${event.aftershock24hLikelihoodLevel}`
-          : "No prediction",
-      ].join(" • ");
+      popup.className = "min-w-60 space-y-3 text-sm";
+
+      const location = document.createElement("h2");
+      location.className = "text-center text-base font-semibold";
+      location.textContent = event.location ?? "Unknown location";
+
+      const details = document.createElement("dl");
+      details.className = "grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5";
+      addEventDetail(details, "Date", event.date);
+      addEventDetail(details, "Latitude", `${event.latitude.toFixed(2)}°`);
+      addEventDetail(details, "Longitude", `${event.longitude.toFixed(2)}°`);
+      addEventDetail(details, "Magnitude", event.magnitude.toFixed(1));
+      addEventDetail(details, "Depth", `${event.depth} km`);
+
+      const forecastStatus = document.createElement("div");
+      if (event.hasForecast) {
+        const forecastLink = document.createElement("a");
+        forecastLink.href = "#";
+        forecastLink.className = "block text-center font-medium underline underline-offset-4";
+        forecastLink.textContent = "Show forecast info";
+        forecastLink.addEventListener("click", (clickEvent) => clickEvent.preventDefault());
+        forecastStatus.append(forecastLink);
+      } else {
+        forecastStatus.className = "flex items-center justify-center gap-1.5 text-muted-foreground";
+        const whyLink = document.createElement("a");
+        whyLink.href = "#";
+        whyLink.className = "underline underline-offset-4";
+        whyLink.textContent = "see why";
+        whyLink.addEventListener("click", (clickEvent) => clickEvent.preventDefault());
+        forecastStatus.append(createCloudAlertIcon(), "No forecast available ", whyLink);
+      }
+
+      popup.append(location, details, forecastStatus);
 
       L.circleMarker([event.latitude, event.longitude], {
-        radius: Math.max(4, event.magnitude * 2),
+        className: `earthquake-marker earthquake-marker--magnitude-${magnitudeMarkerBand(event.magnitude)}`,
+        radius: 6,
       })
         .addTo(layer)
-        .bindPopup(popup);
+        .bindPopup(popup, { minWidth: 260 });
     });
   }
 

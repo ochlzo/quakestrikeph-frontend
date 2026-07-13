@@ -1,5 +1,5 @@
 export type FilterKey = "magnitude" | "depth" | "date"
-export type NumericFilterKey = Exclude<FilterKey, "date">
+export type RangeFilterKey = "depth"
 export type Range = { from: string; to: string }
 export type FilterErrors = Partial<Record<FilterKey, string>>
 
@@ -23,21 +23,24 @@ export function validateDateRange(
 
 export function validateFilters(
   filters: Record<FilterKey, boolean>,
-  ranges: Record<NumericFilterKey, Range>,
-  dateRange: { from?: Date; to?: Date }
+  ranges: Record<RangeFilterKey, Range>,
+  dateRange: { from?: Date; to?: Date },
+  magnitudeRanges: unknown[]
 ): FilterErrors {
   const errors: FilterErrors = {}
 
-  for (const filter of ["magnitude", "depth"] as const) {
-    if (!filters[filter]) continue
+  if (filters.magnitude && !magnitudeRanges.length) {
+    errors.magnitude = "Select or enter at least one magnitude range."
+  }
 
-    const { from, to } = ranges[filter]
+  if (filters.depth) {
+    const { from, to } = ranges.depth
     if (!from || !to) {
-      errors[filter] = "Enter both From and To values."
+      errors.depth = "Enter both From and To values."
     } else if (Number(from) < 0 || Number(to) < 0) {
-      errors[filter] = "Values must be 0 or greater."
+      errors.depth = "Values must be 0 or greater."
     } else if (Number(from) > Number(to)) {
-      errors[filter] = "From must be less than or equal to To."
+      errors.depth = "From must be less than or equal to To."
     }
   }
 
