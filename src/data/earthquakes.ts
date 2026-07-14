@@ -44,6 +44,42 @@ export type EarthquakeMarkerPage = {
   atLimit: boolean
 }
 
+type EarthquakeForecastRow = {
+  event_id: string
+  created_at: string
+  aftershock_24h: number | null
+  m5_plus_aftershock: number | null
+  within_10km: number | null
+  between_10_25km: number | null
+  between_25_50km: number | null
+  beyond_50km: number | null
+  est_max_aftershock: number | null
+  aftershock_24h_likelihood_level: string | null
+  m5_plus_likelihood_level: string | null
+  aftershock_msg: string | null
+  m5_plus_msg: string | null
+  distance_msg: string | null
+  max_magnitude_msg: string | null
+}
+
+export type EarthquakeForecast = {
+  eventId: string
+  createdAt: string
+  aftershock24h: number | null
+  m5PlusAftershock: number | null
+  within10Km: number | null
+  between10And25Km: number | null
+  between25And50Km: number | null
+  beyond50Km: number | null
+  estimatedStrongestAftershock: number | null
+  aftershock24hLikelihoodLevel: string | null
+  m5PlusLikelihoodLevel: string | null
+  aftershockMessage: string | null
+  m5PlusMessage: string | null
+  distanceMessage: string | null
+  maxMagnitudeMessage: string | null
+}
+
 function toEarthquakeMarkers(events: EarthquakeEvent[]) {
   return events.map((event) => {
     return {
@@ -110,4 +146,38 @@ export async function getRecentEarthquakeMarkerPage(
   offset = 0
 ): Promise<EarthquakeMarkerPage> {
   return getEarthquakeMarkerPage(filters, offset, null)
+}
+
+export async function getEarthquakeForecast(eventId: string): Promise<EarthquakeForecast | null> {
+  const { data, error } = await supabase
+    .from("SeisPredictions_v1")
+    .select(`
+      event_id, created_at, aftershock_24h, m5_plus_aftershock,
+      within_10km, between_10_25km, between_25_50km, beyond_50km,
+      est_max_aftershock, aftershock_24h_likelihood_level, m5_plus_likelihood_level,
+      aftershock_msg, m5_plus_msg, distance_msg, max_magnitude_msg
+    `)
+    .eq("event_id", eventId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+
+  const forecast = data as EarthquakeForecastRow
+  return {
+    eventId: forecast.event_id,
+    createdAt: forecast.created_at,
+    aftershock24h: forecast.aftershock_24h,
+    m5PlusAftershock: forecast.m5_plus_aftershock,
+    within10Km: forecast.within_10km,
+    between10And25Km: forecast.between_10_25km,
+    between25And50Km: forecast.between_25_50km,
+    beyond50Km: forecast.beyond_50km,
+    estimatedStrongestAftershock: forecast.est_max_aftershock,
+    aftershock24hLikelihoodLevel: forecast.aftershock_24h_likelihood_level,
+    m5PlusLikelihoodLevel: forecast.m5_plus_likelihood_level,
+    aftershockMessage: forecast.aftershock_msg,
+    m5PlusMessage: forecast.m5_plus_msg,
+    distanceMessage: forecast.distance_msg,
+    maxMagnitudeMessage: forecast.max_magnitude_msg,
+  }
 }

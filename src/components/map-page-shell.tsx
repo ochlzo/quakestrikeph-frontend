@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { EarthquakeFilterSidebar } from "@/components/earthquake-filter-sidebar"
+import { EarthquakeForecastSidebar } from "@/components/earthquake-forecast-sidebar"
 import { searchEarthquakeMarkers, type EarthquakeMarker } from "@/data/earthquakes"
 import {
   EARTHQUAKE_EVENTS_UPDATED_EVENT,
@@ -23,6 +24,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 type MapPageShellProps = { children: ReactNode }
 type SearchStatus = "idle" | "loading" | "ready" | "error"
@@ -59,6 +61,7 @@ function MapPageContent({ children }: MapPageShellProps) {
   const searchRequest = React.useRef(0)
   const searchLoadingMoreRef = React.useRef(false)
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null)
+  const [forecastEvent, setForecastEvent] = React.useState<EarthquakeMarker | null>(null)
   const [selectionVersion, setSelectionVersion] = React.useState(0)
   const [activeFilterCount, setActiveFilterCount] = React.useState(0)
   const [searchFilters, setSearchFilters] = React.useState(createDefaultMapFilters)
@@ -86,8 +89,12 @@ function MapPageContent({ children }: MapPageShellProps) {
       setFilteredLoadingMore(detail.loadingMore)
     }
     const selectEvent = (event: Event) => {
-      selectEarthquake((event as CustomEvent<string>).detail)
-      openMainSidebar()
+      const selected = (event as CustomEvent<EarthquakeMarker>).detail
+      if (selected.hasForecast) setFilterPanelOpen(false)
+      selectEarthquake(selected.id)
+      setForecastEvent(selected.hasForecast ? selected : null)
+      if (isMobile && selected.hasForecast) setOpenMobile(false)
+      else openMainSidebar()
     }
     const updateFilterStatus = (event: Event) => {
       setActiveFilterCount((event as CustomEvent<number>).detail)
@@ -106,7 +113,7 @@ function MapPageContent({ children }: MapPageShellProps) {
       document.removeEventListener(FILTERS_ACTIVE_EVENT, updateFilterStatus)
       document.removeEventListener("quakestrike:filters", updateSearchFilters)
     }
-  }, [openMainSidebar, selectEarthquake])
+  }, [isMobile, openMainSidebar, selectEarthquake, setOpenMobile])
 
   React.useEffect(() => {
     const requestId = ++searchRequest.current
@@ -158,18 +165,24 @@ function MapPageContent({ children }: MapPageShellProps) {
 
   function setFiltersOpen(open: boolean) {
     setFilterPanelOpen(open)
-    if (!open && isMobile) setOpenMobile(true)
+    if (!open && isMobile && !forecastEvent) setOpenMobile(true)
   }
 
   function filtersApplied() {
     if (isMobile) {
       setFilterPanelOpen(false)
-      setOpenMobile(true)
+      if (!forecastEvent) setOpenMobile(true)
     }
+  }
+
+  function closeForecast() {
+    setForecastEvent(null)
+    if (isMobile) setOpenMobile(true)
   }
 
   function focusEarthquake(event: EarthquakeMarker) {
     selectEarthquake(event.id)
+    setForecastEvent((current) => current ? (event.hasForecast ? event : null) : null)
     document.dispatchEvent(new CustomEvent(EARTHQUAKE_FOCUS_EVENT, {
       detail: { id: event.id, latitude: event.latitude, longitude: event.longitude },
     }))
@@ -228,7 +241,15 @@ function MapPageContent({ children }: MapPageShellProps) {
         onOpenFilters={openFilters}
         onSelectEvent={focusEarthquake}
       />
-      <EarthquakeFilterSidebar open={filterPanelOpen} onOpenChange={setFiltersOpen} onApplied={filtersApplied} />
+      <div
+        className={cn(
+          "relative hidden h-svh shrink-0 overflow-hidden border-sidebar-border transition-[width] duration-200 ease-linear md:block",
+          forecastEvent || filterPanelOpen ? "w-80 border-r" : "w-0"
+        )}
+      >
+        <EarthquakeForecastSidebar event={forecastEvent} covered={filterPanelOpen} onClose={closeForecast} />
+        <EarthquakeFilterSidebar open={filterPanelOpen} onOpenChange={setFiltersOpen} onApplied={filtersApplied} />
+      </div>
       <SidebarInset className="isolate flex h-svh min-w-0 flex-col overflow-hidden">
         <header className="relative z-10 flex h-12 shrink-0 items-center bg-background/95 px-4 backdrop-blur-sm">
           <SidebarTrigger className="-ml-1" />

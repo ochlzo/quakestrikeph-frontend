@@ -12,17 +12,18 @@
 - The home page is `src/pages/index.astro`; `MapPageShell` owns the viewport shell and the inner rounded, overflow-hidden wrapper owns map clipping.
 - `MapPageShell` coordinates sidebar, search/list, filter, and map state. `src/components/Map.astro` owns Leaflet and the live event/prediction layer. Keep map overlays on the `leaflet:ready` event.
 - Use the shared document events in `src/lib/earthquake-map-filters.ts` to connect React UI and Leaflet; do not couple sidebar components directly to Leaflet.
-- Clicking a pin opens the main sidebar, selects and scrolls to its event, and opens its popup. Clicking a list event centers and zooms the map, selects its pin, and opens its popup.
+- Clicking a pin selects and scrolls to its event and opens its popup. A pin with a forecast also opens the forecast sidebar; a pin without one does not. Clicking a list event centers and zooms the map, selects its pin, and opens its popup without automatically opening a closed forecast sidebar.
 - Keep every pin the same size. Magnitude controls pin color through the shared magnitude ranges used by the filters and legend.
-- Popup content is raw event information only: centered location, date, latitude/longitude, magnitude, and depth. Forecast data is represented only by a `Show forecast info` link or the no-forecast status.
+- Popup content is raw event information only: centered location, date, latitude/longitude, magnitude, and depth. Forecast pins show details in the forecast sidebar instead of a popup link. Keep the existing `No forecast available see why` fallback and link styling unchanged for events without forecasts.
 - Do not reintroduce demo data as production map data. Preserve the existing mobile bounds and tile-buffer behavior unless intentionally changing map interaction.
 
 ## Sidebar terminology
 
 - **Main sidebar**: the leftmost event-discovery panel. It contains the brand, map legend, location search, `Filter earthquakes` button, and earthquake list. Its `SidebarTrigger` collapses it completely off-canvas; do not restore an icon gutter.
-- **Nested sidebar / filter sidebar**: a separate secondary panel containing earthquake-event and forecast filters with persistent Reset and Apply actions.
-- On desktop, the filter sidebar opens beside the main sidebar and stays open after Apply. On mobile, it replaces the main sidebar sheet and returns to the event list when closed or applied.
-- Keep main-sidebar and filter-sidebar visibility independent except for the intentional mobile handoff.
+- **Forecast sidebar**: the secondary contextual panel for the selected forecast event. Show aftershock likelihoods, estimated strongest aftershock, a bold most-likely distance, all four distance-band chances, prediction messages, and generation time.
+- **Filter sidebar**: the earthquake-event and forecast filter panel with persistent Reset and Apply actions. It shares the forecast sidebar's secondary slot and overlays forecast details rather than creating a third column.
+- When filters cover forecast details, keep the forecast state underneath but make it inert. Clicking a forecast pin closes filters and reveals that pin's forecast; clicking a no-forecast pin leaves filters open.
+- On mobile, forecast and filter panels use the same left-sheet handoff. Closing filters reveals an active forecast; otherwise it returns to the event list.
 
 ## Event loading and search
 
@@ -35,6 +36,7 @@
 - Active earthquake and forecast filters also apply to search results. Apply and Reset preserve the search text and restart pagination from the first page; Reset removes filters rather than restoring a time default.
 - Keep normal-query and search-query offsets separate so switching modes cannot skip or duplicate pages.
 - Keep Supabase fetch and join logic in `src/data/*`; UI components must not query Supabase directly.
+- Fetch detailed `SeisPredictions_v1` forecast fields on demand through `src/data/earthquakes.ts`; do not add them to every paginated map row by default.
 
 ## Filters
 

@@ -106,15 +106,9 @@ const {
       addEventDetail(details, "Magnitude", event.magnitude.toFixed(1));
       addEventDetail(details, "Depth", `${event.depth} km`);
 
-      const forecastStatus = document.createElement("div");
-      if (event.hasForecast) {
-        const forecastLink = document.createElement("a");
-        forecastLink.href = "#";
-        forecastLink.className = "block text-center font-medium underline underline-offset-4";
-        forecastLink.textContent = "Show forecast info";
-        forecastLink.addEventListener("click", (clickEvent) => clickEvent.preventDefault());
-        forecastStatus.append(forecastLink);
-      } else {
+      popup.append(location, details);
+      if (!event.hasForecast) {
+        const forecastStatus = document.createElement("div");
         forecastStatus.className = "flex items-center justify-center gap-1.5 text-muted-foreground";
         const whyLink = document.createElement("a");
         whyLink.href = "#";
@@ -122,9 +116,8 @@ const {
         whyLink.textContent = "see why";
         whyLink.addEventListener("click", (clickEvent) => clickEvent.preventDefault());
         forecastStatus.append(createCloudAlertIcon(), "No forecast available ", whyLink);
+        popup.append(forecastStatus);
       }
-
-      popup.append(location, details, forecastStatus);
 
       const marker = L.circleMarker([event.latitude, event.longitude], {
         className: `earthquake-marker earthquake-marker--magnitude-${magnitudeMarkerBand(event.magnitude)}`,
@@ -133,7 +126,7 @@ const {
         .addTo(layer)
         .bindPopup(popup, { minWidth: 260 });
       marker.on("click", () => {
-        document.dispatchEvent(new CustomEvent(EARTHQUAKE_SELECTED_EVENT, { detail: event.id }));
+        document.dispatchEvent(new CustomEvent(EARTHQUAKE_SELECTED_EVENT, { detail: event }));
       });
       markerByEventId.set(event.id, marker);
     });

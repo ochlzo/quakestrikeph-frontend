@@ -223,8 +223,8 @@ export function EarthquakeFilterSidebar({
       aria-hidden={!open}
       inert={!open}
       className={cn(
-        "h-svh shrink-0 overflow-hidden border-sidebar-border transition-[width] duration-200 ease-linear",
-        open ? "w-80 border-r" : "w-0"
+        "absolute inset-0 z-20 overflow-hidden transition-transform duration-200 ease-linear",
+        open ? "translate-x-0" : "-translate-x-full"
       )}
     >
       {content}
