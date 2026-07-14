@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prefer Global CSS"
+  short_description: "Reuse global.css tokens and utilities first"
+  default_prompt: "Use $prefer-global-css to implement this UI change."
