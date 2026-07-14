@@ -36,19 +36,6 @@ export type EarthquakeMapFilters = {
   forecasts: ForecastFilters
 }
 
-type ForecastMarker = {
-  hasForecast: boolean
-  aftershock24hLikelihoodLevel?: string | null
-  m5PlusLikelihoodLevel?: string | null
-  estimatedStrongestAftershock?: number | null
-}
-
-type EventMarker = {
-  magnitude: number
-  depth: number | string
-  eventTime?: string | null
-}
-
 export function createDefaultMapFilters(): EarthquakeMapFilters {
   return {
     events: { magnitude: null, depth: null, date: null },
@@ -104,37 +91,4 @@ export function getPaginationState(offset: number, consumed: number, hasExtra: b
     hasMore: hasExtra && nextOffset < MAX_MAP_EVENTS,
     atLimit: nextOffset >= MAX_MAP_EVENTS,
   }
-}
-
-function matchesSelection(value: string | null | undefined, selected: string[], all: readonly string[]) {
-  if (all.every((option) => selected.includes(option))) return true
-  return Boolean(value && selected.includes(value.toLowerCase()))
-}
-
-export function filterMarkersByForecast<T extends ForecastMarker>(markers: T[], filters: ForecastFilters) {
-  return markers.filter((marker) => {
-    if (!marker.hasForecast) return filters.includeNoForecast
-
-    return matchesSelection(marker.aftershock24hLikelihoodLevel, filters.aftershock24hLikelihoods, FORECAST_LIKELIHOODS)
-      && matchesSelection(marker.m5PlusLikelihoodLevel, filters.m5PlusLikelihoods, FORECAST_LIKELIHOODS)
-      && (filters.minimumEstimatedStrongestAftershock === null
-        || (marker.estimatedStrongestAftershock ?? -Infinity) >= filters.minimumEstimatedStrongestAftershock)
-  })
-}
-
-export function filterMarkersByEvent<T extends EventMarker>(markers: T[], filters: EarthquakeMapFilters["events"]) {
-  return markers.filter((marker) => {
-    const matchesMagnitude = !filters.magnitude || filters.magnitude.some(({ from, to, upperExclusive }) =>
-      marker.magnitude >= from
-      && (to === undefined || (upperExclusive ? marker.magnitude < to : marker.magnitude <= to))
-    )
-    const depth = Number(marker.depth)
-    const matchesDepth = !filters.depth
-      || (depth >= Number(filters.depth.from) && depth <= Number(filters.depth.to))
-    const matchesDate = !filters.date
-      || Boolean(marker.eventTime
-        && marker.eventTime >= filters.date.from
-        && marker.eventTime <= filters.date.to)
-    return matchesMagnitude && matchesDepth && matchesDate
-  })
 }

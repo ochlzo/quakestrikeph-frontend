@@ -3,69 +3,24 @@ import test from "node:test"
 
 import { validateDateRange } from "./filter-validation.ts"
 import {
-  magnitudeRangeFilter,
   magnitudeSelectionsToRanges,
   parseCustomMagnitudeRanges,
 } from "./magnitude-ranges.ts"
 import {
   countActiveMapFilters,
   createDefaultMapFilters,
-  filterMarkersByEvent,
-  filterMarkersByForecast,
   getPaginationState,
   hasActiveMapFilters,
   magnitudeMarkerBand,
   toEventTime,
 } from "./earthquake-map-filters.ts"
 
-test("filters forecast likelihoods", () => {
-  const markers = [
-    {
-      id: "matching",
-      hasForecast: true,
-      aftershock24hLikelihoodLevel: "HIGH",
-      m5PlusLikelihoodLevel: "low",
-      estimatedStrongestAftershock: 4.5,
-    },
-    {
-      id: "below-threshold",
-      hasForecast: true,
-      aftershock24hLikelihoodLevel: "HIGH",
-      m5PlusLikelihoodLevel: "low",
-      estimatedStrongestAftershock: 3.8,
-    },
-    { id: "missing-prediction", hasForecast: false },
-  ]
-
-  assert.equal(filterMarkersByForecast(markers, createDefaultMapFilters().forecasts).length, 3)
-  assert.deepEqual(filterMarkersByForecast(markers, {
-    aftershock24hLikelihoods: ["high"],
-    m5PlusLikelihoods: ["low"],
-    minimumEstimatedStrongestAftershock: 4,
-    includeNoForecast: false,
-  }).map((marker) => marker.id), ["matching"])
-  assert.deepEqual(filterMarkersByForecast(markers, {
-    aftershock24hLikelihoods: ["high"],
-    m5PlusLikelihoods: ["low"],
-    minimumEstimatedStrongestAftershock: 4,
-    includeNoForecast: true,
-  }).map((marker) => marker.id), ["matching", "missing-prediction"])
-})
-
-test("filters search markers with active event filters", () => {
-  const markers = [
-    { id: "matching", magnitude: 4.5, depth: "20", eventTime: "2026-07-13T12:00:00" },
-    { id: "too-small", magnitude: 3.5, depth: "20", eventTime: "2026-07-13T12:00:00" },
-    { id: "too-deep", magnitude: 4.5, depth: "80", eventTime: "2026-07-13T12:00:00" },
-  ]
-  assert.deepEqual(filterMarkersByEvent(markers, {
-    magnitude: [{ from: 4, to: 5, upperExclusive: true }],
-    depth: { from: "0", to: "50" },
-    date: { from: "2026-07-13T00:00:00", to: "2026-07-13T23:59:59" },
-  }).map((marker) => marker.id), ["matching"])
-})
-
 test("stops pagination at the map event limit", () => {
+  assert.deepEqual(getPaginationState(0, 6, false), {
+    nextOffset: 6,
+    hasMore: false,
+    atLimit: false,
+  })
   assert.deepEqual(getPaginationState(50, 50, true), {
     nextOffset: 100,
     hasMore: true,
@@ -117,17 +72,17 @@ test("assigns marker colors at magnitude boundaries", () => {
   )
 })
 
-test("parses preset and custom magnitude selections into a safe OR filter", () => {
+test("parses preset and custom magnitude selections", () => {
   assert.deepEqual(parseCustomMagnitudeRanges("1-2, 3.5-4.5"), {
     values: ["1-2", "3.5-4.5"],
   })
   assert.match(parseCustomMagnitudeRanges("4-3").error ?? "", /lower value/)
 
   const ranges = magnitudeSelectionsToRanges(["magnitude-below-3", "4.2-5.1"])
-  assert.equal(
-    magnitudeRangeFilter(ranges),
-    "and(Magnitude.gte.0,Magnitude.lt.3),and(Magnitude.gte.4.2,Magnitude.lte.5.1)"
-  )
+  assert.deepEqual(ranges, [
+    { from: 0, to: 3, upperExclusive: true },
+    { from: 4.2, to: 5.1 },
+  ])
 })
 
 test("detects filters applied to the current map query", () => {

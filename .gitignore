@@ -27,3 +27,6 @@ pnpm-debug.log*
 .playwright-cli
 .codex
 .agents
+
+#migrations
+supabase/migrations/*

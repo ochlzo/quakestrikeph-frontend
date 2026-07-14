@@ -63,11 +63,3 @@ export function magnitudeSelectionsToRanges(values: string[]): MagnitudeRange[] 
     return match ? [{ from: Number(match[1]), to: Number(match[2]) }] : []
   })
 }
-
-export function magnitudeRangeFilter(ranges: MagnitudeRange[]) {
-  return ranges.map(({ from, to, upperExclusive }) =>
-    to === undefined
-      ? `Magnitude.gte.${from}`
-      : `and(Magnitude.gte.${from},Magnitude.${upperExclusive ? "lt" : "lte"}.${to})`
-  ).join(",")
-}
