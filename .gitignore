@@ -31,3 +31,4 @@ pnpm-debug.log*
 #migrations
 supabase/migrations/*
 !supabase/migrations/20260715090000_forecast_playback_page.sql
+!supabase/migrations/20260715180000_forecast_playback_scopes.sql

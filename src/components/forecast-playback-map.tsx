@@ -10,6 +10,12 @@ import type {
 import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast"
 import { magnitudeMarkerBand } from "@/lib/earthquake-map-filters"
 
+const DISTANCE_LABEL_PLACEMENT = {
+  10: { angle: 145, direction: "left" },
+  25: { angle: 30, direction: "right" },
+  50: { angle: 140, direction: "left" },
+} as const
+
 function popupRow(list: HTMLDListElement, label: string, value: string) {
   const term = document.createElement("dt")
   term.className = "text-muted-foreground"
@@ -124,8 +130,10 @@ export function ForecastPlaybackMap({
     const radii: Array<10 | 25 | 50> = showAllRings ? [10, 25, 50] : [...likelyBoundaries]
     if (radii.length === 0) return
     const styles = getComputedStyle(document.documentElement)
-    const primaryColor = styles.getPropertyValue("--primary").trim()
-    const mutedColor = styles.getPropertyValue("--muted-foreground").trim()
+    const likelyColor = styles.getPropertyValue("--forecast-ring-likely").trim()
+    const contextColor = styles.getPropertyValue("--forecast-ring-context").trim()
+    const latitudeKm = 110.574
+    const longitudeKm = 111.32 * Math.cos(latitude * Math.PI / 180)
 
     let outerRing: import("leaflet").Circle | null = null
     for (const radiusKm of radii) {
@@ -135,13 +143,11 @@ export function ForecastPlaybackMap({
         radius: radiusKm * 1000,
         interactive: false,
         stroke: true,
-        color: likely ? primaryColor : mutedColor,
-        weight: likely ? 4 : 2,
-        opacity: 1,
-        fill: true,
-        fillColor: likely ? primaryColor : mutedColor,
-        fillOpacity: likely ? 0.1 : 0.04,
-        dashArray: beyond ? "8 6" : undefined,
+        color: likely ? likelyColor : contextColor,
+        weight: likely ? 3 : 1.5,
+        opacity: likely ? 0.85 : 0.55,
+        fill: false,
+        dashArray: beyond ? "8 6" : likely ? undefined : "4 6",
         className: [
           "forecast-distance-ring",
           likely ? "forecast-distance-ring--likely" : "",
@@ -149,13 +155,23 @@ export function ForecastPlaybackMap({
         ].filter(Boolean).join(" "),
       }).addTo(rings)
       outerRing = ring
-      if (beyond) {
-        ring.bindTooltip("Most likely beyond 50 km", {
-          permanent: true,
-          direction: "top",
-          className: "forecast-distance-label",
-        })
-      }
+      const placement = DISTANCE_LABEL_PLACEMENT[radiusKm]
+      const angle = placement.angle * Math.PI / 180
+      L.tooltip({
+        permanent: true,
+        direction: placement.direction,
+        offset: placement.direction === "left" ? [-4, 0] : [4, 0],
+        className: [
+          "forecast-distance-label",
+          likely ? "forecast-distance-label--likely" : "",
+        ].filter(Boolean).join(" "),
+      })
+        .setLatLng([
+          latitude + radiusKm * Math.sin(angle) / latitudeKm,
+          longitude + radiusKm * Math.cos(angle) / longitudeKm,
+        ])
+        .setContent(beyond ? "Most likely beyond 50 km" : `${radiusKm} km`)
+        .addTo(rings)
     }
 
     if (outerRing) {

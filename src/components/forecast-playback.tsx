@@ -12,6 +12,7 @@ import {
   type EarthquakeForecast,
   type ForecastPlaybackEvent,
   type ForecastPlaybackPage,
+  type ForecastPlaybackScope,
 } from "@/data/earthquakes"
 import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast"
 import {
@@ -23,6 +24,11 @@ import {
 } from "@/lib/forecast-playback"
 
 const PLAYBACK_SPEEDS = [1, 2, 4] as const
+const PLAYBACK_SCOPES: Array<{ value: ForecastPlaybackScope; label: string }> = [
+  { value: "gk", label: "GK radius" },
+  { value: "100km", label: "Only within 100 km" },
+  { value: "all", label: "All (no filter)" },
+]
 
 function mergeEvents(
   current: ForecastPlaybackEvent[],
@@ -60,8 +66,12 @@ export function ForecastPlayback({
   const [playing, setPlaying] = React.useState(false)
   const [speed, setSpeed] = React.useState<(typeof PLAYBACK_SPEEDS)[number]>(1)
   const [showAllRings, setShowAllRings] = React.useState(false)
+  const [scope, setScope] = React.useState<ForecastPlaybackScope>(initialPage.playbackScope)
+  const [scopeLoading, setScopeLoading] = React.useState(false)
+  const [scopeError, setScopeError] = React.useState(false)
   const [bufferError, setBufferError] = React.useState(false)
   const fetchingCursorRef = React.useRef<string | null>(null)
+  const scopeRef = React.useRef(initialPage.playbackScope)
 
   const startedAt = Date.parse(page.forecastStartedAt)
   const observedThrough = page.observedThrough
@@ -105,9 +115,10 @@ export function ForecastPlayback({
     const cursorKey = `${page.nextCursor.eventTime}:${page.nextCursor.eventId}`
     if (fetchingCursorRef.current === cursorKey) return
     fetchingCursorRef.current = cursorKey
-    void getForecastPlaybackPage(eventId, page.nextCursor)
+    const requestedScope = page.playbackScope
+    void getForecastPlaybackPage(eventId, page.nextCursor, 100, requestedScope)
       .then((nextPage) => {
-        if (!nextPage) return
+        if (!nextPage || scopeRef.current !== requestedScope) return
         setBufferError(false)
         setEvents((current) => mergeEvents(current, nextPage.events))
         setPage(nextPage)
@@ -125,6 +136,32 @@ export function ForecastPlayback({
   const sliderValue = Math.max(0, currentTime - startedAt)
   const beyondForecast = currentTime > forecastEndsAt
   const likelyBand = getMostLikelyDistanceBand(forecast)
+
+  function changeScope(nextScope: ForecastPlaybackScope) {
+    if (nextScope === scope || scopeLoading) return
+    const previousScope = scope
+    scopeRef.current = nextScope
+    setScope(nextScope)
+    setPlaying(false)
+    setScopeLoading(true)
+    setScopeError(false)
+    void getForecastPlaybackPage(eventId, null, 100, nextScope)
+      .then((nextPage) => {
+        if (!nextPage) throw new Error("Playback data is unavailable")
+        if (scopeRef.current !== nextScope) return
+        setEvents(nextPage.events)
+        setPage(nextPage)
+        setBufferError(false)
+        fetchingCursorRef.current = null
+      })
+      .catch(() => {
+        if (scopeRef.current !== nextScope) return
+        scopeRef.current = previousScope
+        setScope(previousScope)
+        setScopeError(true)
+      })
+      .finally(() => setScopeLoading(false))
+  }
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card shadow-sm lg:sticky lg:top-6">
@@ -227,6 +264,34 @@ export function ForecastPlayback({
           </label>
         </div>
 
+        <fieldset className="space-y-2 rounded-lg border bg-muted/40 p-3" disabled={scopeLoading}>
+          <legend className="px-1 text-sm font-semibold">Show only which earthquakes?</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {PLAYBACK_SCOPES.map((option) => (
+              <label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="playback-scope"
+                  value={option.value}
+                  checked={scope === option.value}
+                  className="size-4 accent-primary"
+                  onChange={() => changeScope(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {scopeLoading
+              ? "Updating playback…"
+              : scope === "gk"
+                ? `Showing the ${page.gardnerKnopoffRadiusKm.toFixed(1)} km Gardner–Knopoff screening radius.`
+                : scope === "100km"
+                  ? "Showing catalog observations within 100 km of the trigger."
+                  : "Showing all catalog observations with no distance filter."}
+          </p>
+        </fieldset>
+
         <p className="text-xs text-muted-foreground">
           {showAllRings
             ? "Rings mark 10 km, 25 km, and 50 km. The stronger line marks the model’s most-likely distance band."
@@ -239,6 +304,14 @@ export function ForecastPlayback({
             <span>Later observations could not be buffered.</span>
             <Button type="button" variant="outline" size="sm" onClick={() => setBufferError(false)}>
               Retry
+            </Button>
+          </div>
+        ) : null}
+        {scopeError ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3 text-xs">
+            <span>The playback filter could not be changed.</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => setScopeError(false)}>
+              Dismiss
             </Button>
           </div>
         ) : null}

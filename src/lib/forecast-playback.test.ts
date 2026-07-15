@@ -6,6 +6,7 @@ import {
   FORECAST_WINDOW_MS,
   advancePlaybackTime,
   eventsWithinForecastWindow,
+  gardnerKnopoffObservations,
   getPlaybackHorizon,
   observationDiscussion,
   probabilityDiscussion,
@@ -43,8 +44,8 @@ test("restarts and scrubs within the available observation range", () => {
 test("keeps first-day comparisons separate from later observations", () => {
   const windowEnd = "2026-07-16T00:00:00Z"
   const events: ForecastPlaybackEvent[] = [
-    { id: "inside", dateTime: "", eventTime: windowEnd, latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 3 },
-    { id: "later", dateTime: "", eventTime: "2026-07-16T00:00:01Z", latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 3 },
+    { id: "inside", dateTime: "", eventTime: windowEnd, latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 3, withinGardnerKnopoffRadius: true },
+    { id: "later", dateTime: "", eventTime: "2026-07-16T00:00:01Z", latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 3, withinGardnerKnopoffRadius: true },
   ]
   assert.deepEqual(
     eventsWithinForecastWindow(events, windowEnd).map((event) => event.id),
@@ -52,12 +53,20 @@ test("keeps first-day comparisons separate from later observations", () => {
   )
 })
 
+test("keeps only events marked inside the Gardner–Knopoff radius", () => {
+  const events: ForecastPlaybackEvent[] = [
+    { id: "inside", dateTime: "", eventTime: "2026-07-15T01:00:00Z", latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 34.6, withinGardnerKnopoffRadius: true },
+    { id: "outside", dateTime: "", eventTime: "2026-07-15T02:00:00Z", latitude: 0, longitude: 0, depth: 1, magnitude: 2, distanceKm: 34.8, withinGardnerKnopoffRadius: false },
+  ]
+  assert.deepEqual(gardnerKnopoffObservations(events).map((event) => event.id), ["inside"])
+})
+
 test("uses complete sentences for observation states and grammar", () => {
   assert.match(observationDiscussion("pending", 0), /still pending/)
   assert.match(observationDiscussion("delayed", 0), /may be incomplete/)
-  assert.match(observationDiscussion("complete", 0), /No nearby earthquakes/)
-  assert.match(observationDiscussion("complete", 1), /^One nearby earthquake was/)
-  assert.match(observationDiscussion("current", 3), /^3 nearby earthquakes were/)
+  assert.match(observationDiscussion("complete", 0), /No earthquakes were recorded within the Gardner–Knopoff/)
+  assert.match(observationDiscussion("complete", 1), /^One screened earthquake was/)
+  assert.match(observationDiscussion("current", 3), /^3 screened earthquakes were/)
 })
 
 test("explains probabilities without a correctness verdict", () => {

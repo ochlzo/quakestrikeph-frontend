@@ -42,6 +42,7 @@ export type EarthquakeEventDetail = Omit<EarthquakeMarker, "hasForecast"> & {
 }
 
 export type ForecastObservationStatus = "pending" | "current" | "complete" | "delayed"
+export type ForecastPlaybackScope = "gk" | "100km" | "all"
 
 export type ForecastPlaybackEvent = {
   id: string
@@ -52,6 +53,7 @@ export type ForecastPlaybackEvent = {
   depth: number | string
   magnitude: number
   distanceKm: number
+  withinGardnerKnopoffRadius: boolean
 }
 
 export type ForecastPlaybackCursor = {
@@ -61,6 +63,8 @@ export type ForecastPlaybackCursor = {
 
 export type ForecastPlaybackPage = {
   status: ForecastObservationStatus
+  playbackScope: ForecastPlaybackScope
+  gardnerKnopoffRadiusKm: number
   forecastStartedAt: string
   forecastWindowEndsAt: string
   observedThrough: string | null
@@ -96,6 +100,8 @@ type EarthquakeForecastRow = {
 
 type ForecastPlaybackRpcResponse = {
   status: ForecastObservationStatus
+  playback_scope: ForecastPlaybackScope
+  gk_radius_km: number
   forecast_started_at: string
   forecast_window_ends_at: string
   observed_through: string | null
@@ -108,6 +114,7 @@ type ForecastPlaybackRpcResponse = {
     depth: number | string
     magnitude: number
     distance_km: number
+    within_gk_radius: boolean
   }>
   next_cursor: { event_time: string; event_id: string } | null
   has_more: boolean
@@ -257,13 +264,15 @@ export async function getEarthquakeForecast(eventId: string): Promise<Earthquake
 export async function getForecastPlaybackPage(
   eventId: string,
   cursor: ForecastPlaybackCursor | null = null,
-  limit = 100
+  limit = 100,
+  scope: ForecastPlaybackScope = "gk"
 ): Promise<ForecastPlaybackPage | null> {
   const { data, error } = await supabase.rpc("get_forecast_playback_page", {
     trigger_event_id: eventId,
     cursor_event_time: cursor?.eventTime ?? null,
     cursor_event_id: cursor?.eventId ?? null,
     result_limit: limit,
+    playback_scope: scope,
   })
   if (error) throw error
   if (!data) return null
@@ -271,6 +280,8 @@ export async function getForecastPlaybackPage(
   const result = data as ForecastPlaybackRpcResponse
   return {
     status: result.status,
+    playbackScope: result.playback_scope,
+    gardnerKnopoffRadiusKm: result.gk_radius_km,
     forecastStartedAt: result.forecast_started_at,
     forecastWindowEndsAt: result.forecast_window_ends_at,
     observedThrough: result.observed_through,
@@ -283,6 +294,7 @@ export async function getForecastPlaybackPage(
       depth: event.depth,
       magnitude: event.magnitude,
       distanceKm: event.distance_km,
+      withinGardnerKnopoffRadius: event.within_gk_radius,
     })),
     nextCursor: result.next_cursor
       ? { eventTime: result.next_cursor.event_time, eventId: result.next_cursor.event_id }

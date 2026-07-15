@@ -21,8 +21,8 @@
 
 - `/forecast?event=<id>` is a static Astro route with a client-only React report. It loads the trigger, forecast, and playback data through `src/data/earthquakes.ts`.
 - Playback begins at forecast generation time. Its initial horizon is 24 hours, then it continues automatically in 24-hour increments until the conservative `observed_through` watermark; it does not poll after catching up.
-- The discussion compares observations only within the original 24-hour forecast window. Later events are playback context, and all nearby events must be described as catalog observations rather than confirmed aftershocks.
-- Playback uses `get_forecast_playback_page(...)`, a chronological `(event_time, id)` cursor RPC limited to 100 events per page and events within 100 km of the trigger.
+- The discussion compares only observations inside the trigger's Gardner–Knopoff radius and the original 24-hour forecast window. Describe these as possibly related screened earthquakes pending further PHIVOLCS information, never confirmed aftershocks. Later screened events are playback context only.
+- Playback uses `get_forecast_playback_page(...)`, a chronological `(event_time, id)` cursor RPC limited to 100 events per page. The mutually exclusive playback scopes are the Gardner–Knopoff radius (default), within 100 km, and all catalog observations with no distance filter; changing playback scope must not change the discussion's Gardner–Knopoff comparison set.
 - Keep the trigger visible. Observation popups show only magnitude, depth, and distance from the trigger. Post-window markers retain magnitude color and use a secondary stroke.
 - Show the most-likely distance boundaries by default. The accessible all-rings switch shows 10 km, 25 km, and 50 km boundaries while keeping the likely band visually stronger; the beyond-50 km boundary is dashed.
 

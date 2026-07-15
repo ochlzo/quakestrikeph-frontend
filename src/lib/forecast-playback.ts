@@ -57,6 +57,10 @@ export function eventsWithinForecastWindow(
   return events.filter((event) => Date.parse(event.eventTime) <= end)
 }
 
+export function gardnerKnopoffObservations(events: ForecastPlaybackEvent[]) {
+  return events.filter((event) => event.withinGardnerKnopoffRadius)
+}
+
 export function probabilityDiscussion(probability: number | null) {
   if (probability === null) return "The model did not provide an aftershock probability for this event."
   const percent = new Intl.NumberFormat("en-US", {
@@ -84,10 +88,10 @@ export function observationDiscussion(
   }
   if (count === 0) {
     return status === "complete"
-      ? "No nearby earthquakes were recorded during the completed 24-hour forecast window."
-      : "No nearby earthquakes have been recorded so far. The 24-hour forecast window is still in progress."
+      ? "No earthquakes were recorded within the Gardner–Knopoff screening radius during the completed 24-hour forecast window."
+      : "No earthquakes have been recorded within the Gardner–Knopoff screening radius so far. The 24-hour forecast window is still in progress."
   }
-  const events = count === 1 ? "One nearby earthquake was" : `${count} nearby earthquakes were`
+  const events = count === 1 ? "One screened earthquake was" : `${count} screened earthquakes were`
   const ending = status === "complete"
     ? "during the completed 24-hour forecast window."
     : "so far. The 24-hour forecast window is still in progress."

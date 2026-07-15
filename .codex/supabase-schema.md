@@ -33,9 +33,9 @@ The supporting `raw_earthquake_events_location_trgm_idx` GiST expression index i
 
 ## Forecast playback RPC
 
-`get_forecast_playback_page(trigger_event_id, cursor_event_time, cursor_event_id, result_limit)` is the browser-safe forecast playback boundary. It converts Philippine-local `RawEarthquakeEvents.event_time` before comparisons, returns chronological observations within 100 km, excludes the trigger, caps pages at 100 rows, and uses `(event_time, id)` cursor pagination so equal timestamps remain stable.
+`get_forecast_playback_page(trigger_event_id, cursor_event_time, cursor_event_id, result_limit, playback_scope)` is the browser-safe forecast playback boundary. It converts Philippine-local `RawEarthquakeEvents.event_time` before comparisons, excludes the trigger, caps pages at 100 rows, and uses `(event_time, id)` cursor pagination so equal timestamps remain stable. `playback_scope` accepts `gk`, `100km`, or `all`; `gk` uses the magnitude-dependent Gardner–Knopoff radius `10^(0.1238M + 0.983)` km, `100km` applies the fixed 100 km boundary, and `all` applies no distance filter.
 
-The RPC returns the fixed forecast start/end, a conservative `observed_through` watermark, `pending | current | complete | delayed` freshness, events, `next_cursor`, and `has_more`. The watermark is the latest successful scheduled/manual `ScraperRuns.started_at`. No later success after the forecast is `pending`; coverage inside 24 hours is `current`; coverage through 24 hours is `complete`; a newer failed attempt after the last success is `delayed`.
+The RPC returns the selected playback scope, the trigger's Gardner–Knopoff radius, an exact `within_gk_radius` flag on every event, the fixed forecast start/end, a conservative `observed_through` watermark, `pending | current | complete | delayed` freshness, events, `next_cursor`, and `has_more`. The watermark is the latest successful scheduled/manual `ScraperRuns.started_at`. No later success after the forecast is `pending`; coverage inside 24 hours is `current`; coverage through 24 hours is `complete`; a newer failed attempt after the last success is `delayed`.
 
 The function is `security definer` so it can expose only this conservative watermark without granting browser roles direct access to `ScraperRuns`. Execute is revoked from `public` and granted only to `anon` and `authenticated`.
 

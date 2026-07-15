@@ -11,6 +11,7 @@ import {
 } from "@/lib/earthquake-forecast"
 import {
   eventsWithinForecastWindow,
+  gardnerKnopoffObservations,
   observationDiscussion,
   probabilityDiscussion,
 } from "@/lib/forecast-playback"
@@ -112,11 +113,12 @@ export function ForecastDiscussionSections({
   playback: ForecastPlaybackPage
   observations: ForecastPlaybackEvent[]
 }) {
+  const screenedObservations = gardnerKnopoffObservations(observations)
   const firstDay = eventsWithinForecastWindow(
-    observations,
+    screenedObservations,
     playback.forecastWindowEndsAt
   )
-  const later = observations.filter(
+  const later = screenedObservations.filter(
     (event) => Date.parse(event.eventTime) > Date.parse(playback.forecastWindowEndsAt)
   )
   const strongest = firstDay.reduce<ForecastPlaybackEvent | null>(
@@ -145,16 +147,19 @@ export function ForecastDiscussionSections({
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Observed catalog results</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Observed earthquakes</h2>
           <p className="mt-2 leading-7 text-muted-foreground">
             {observationDiscussion(playback.status, firstDay.length)}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            For this discussion, the Gardner–Knopoff screening radius ({playback.gardnerKnopoffRadiusKm.toFixed(1)} km for this trigger) is used to identify possibly related earthquakes until further information is available from PHIVOLCS. This screening does not confirm that an earthquake is an aftershock.
           </p>
         </div>
 
         {strongest ? (
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-muted p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Nearby observations</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Possible related earthquakes</p>
               <strong className="mt-1 block text-2xl">{firstDay.length}</strong>
             </div>
             <div className="rounded-lg bg-muted p-4">
@@ -171,14 +176,14 @@ export function ForecastDiscussionSections({
         {strongest ? (
           <div className="space-y-2 leading-7 text-muted-foreground">
             <p>
-              The largest nearby event recorded in the first 24 hours was M{strongest.magnitude.toFixed(1)}{forecast.estimatedStrongestAftershock === null ? "." : `, compared with the model estimate of M${forecast.estimatedStrongestAftershock.toFixed(1)}.`}
+              The largest screened event recorded in the first 24 hours was M{strongest.magnitude.toFixed(1)}{forecast.estimatedStrongestAftershock === null ? "." : `, compared with the model estimate of M${forecast.estimatedStrongestAftershock.toFixed(1)}.`}
             </p>
             <p>
               {magnitudeFiveCount === 0
-                ? "None of the nearby observations reached magnitude 5."
+                ? "None of the screened observations reached magnitude 5."
                 : magnitudeFiveCount === 1
-                  ? "One nearby observation reached magnitude 5 or higher."
-                  : `${magnitudeFiveCount} nearby observations reached magnitude 5 or higher.`}
+                  ? "One screened observation reached magnitude 5 or higher."
+                  : `${magnitudeFiveCount} screened observations reached magnitude 5 or higher.`}
               {nearest ? ` The nearest was ${nearest.distanceKm.toFixed(1)} km from the trigger.` : ""}
             </p>
           </div>
@@ -186,7 +191,7 @@ export function ForecastDiscussionSections({
 
         {later.length > 0 ? (
           <p className="rounded-lg border-l-4 border-primary bg-muted p-4 text-sm leading-6 text-muted-foreground">
-            {later.length === 1 ? "One later catalog event is" : `${later.length} later catalog events are`} available beyond the forecast window. These appear in playback for context and are not included in the 24-hour comparison.
+            {later.length === 1 ? "One later screened event is" : `${later.length} later screened events are`} available beyond the forecast window. These appear in playback for context and are not included in the 24-hour comparison.
           </p>
         ) : null}
       </section>
@@ -222,14 +227,23 @@ export function ForecastDiscussionSections({
           <div><dt className="text-xs uppercase tracking-wide text-muted-foreground">Forecast generated</dt><dd className="mt-1 font-medium">{PHT_DATE.format(new Date(playback.forecastStartedAt))} PHT</dd></div>
           <div><dt className="text-xs uppercase tracking-wide text-muted-foreground">Forecast window ends</dt><dd className="mt-1 font-medium">{PHT_DATE.format(new Date(playback.forecastWindowEndsAt))} PHT</dd></div>
           <div><dt className="text-xs uppercase tracking-wide text-muted-foreground">Observed through</dt><dd className="mt-1 font-medium">{playback.observedThrough ? `${PHT_DATE.format(new Date(playback.observedThrough))} PHT` : "No later successful catalog update"}</dd></div>
-          <div><dt className="text-xs uppercase tracking-wide text-muted-foreground">Playback area</dt><dd className="mt-1 font-medium">Within 100 km of the trigger</dd></div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">Playback filter</dt>
+            <dd className="mt-1 font-medium">
+              {playback.playbackScope === "gk"
+                ? `GK radius (${playback.gardnerKnopoffRadiusKm.toFixed(1)} km)`
+                : playback.playbackScope === "100km"
+                  ? "Within 100 km of the trigger"
+                  : "All catalog observations"}
+            </dd>
+          </div>
           <div><dt className="text-xs uppercase tracking-wide text-muted-foreground">Source status</dt><dd className="mt-1 font-medium capitalize">{playback.status}</dd></div>
         </dl>
       </section>
 
       <aside className="rounded-xl border border-l-4 border-l-primary bg-card p-5 text-sm leading-6 text-muted-foreground">
         <strong className="block text-foreground">Important limitation</strong>
-        This academic prototype is not an official PHIVOLCS advisory. Nearby catalog observations are selected only by time and distance; they are not confirmed aftershocks of the trigger earthquake. Forecast probabilities are estimates and should not be used as the sole basis for emergency decisions.
+        This academic prototype is not an official PHIVOLCS advisory. The discussion uses the Gardner–Knopoff radius to screen for possibly related earthquakes until further information is available from PHIVOLCS; screened events are not confirmed aftershocks. Forecast probabilities are estimates and should not be used as the sole basis for emergency decisions.
       </aside>
     </div>
   )
