@@ -9,8 +9,11 @@
     "dev": "astro dev",
     "build": "astro build",
     "test:filters": "node --experimental-strip-types --test src/lib/earthquake-map-filters.test.ts",
+    "test:forecast": "node --experimental-strip-types --test src/lib/earthquake-forecast.test.ts src/lib/forecast-playback.test.ts",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.0",

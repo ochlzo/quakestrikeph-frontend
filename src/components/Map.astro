@@ -44,6 +44,7 @@ const {
   import { getRecentEarthquakeMarkerPage, type EarthquakeMarker } from "../data/earthquakes";
   import {
     FILTERS_COMPLETE_EVENT,
+    EARTHQUAKE_EVENTS_REQUEST_EVENT,
     EARTHQUAKE_EVENTS_UPDATED_EVENT,
     EARTHQUAKE_FOCUS_EVENT,
     EARTHQUAKE_LOAD_MORE_EVENT,
@@ -117,6 +118,12 @@ const {
         whyLink.addEventListener("click", (clickEvent) => clickEvent.preventDefault());
         forecastStatus.append(createCloudAlertIcon(), "No forecast available ", whyLink);
         popup.append(forecastStatus);
+      } else {
+        const discussionLink = document.createElement("a");
+        discussionLink.href = `/forecast?event=${encodeURIComponent(event.id)}`;
+        discussionLink.className = "block text-center font-medium text-primary underline underline-offset-4";
+        discussionLink.textContent = "View forecast discussion →";
+        popup.append(discussionLink);
       }
 
       const marker = L.circleMarker([event.latitude, event.longitude], {
@@ -231,12 +238,14 @@ const {
     };
 
     document.addEventListener("quakestrike:filters", handleFilters);
+    document.addEventListener(EARTHQUAKE_EVENTS_REQUEST_EVENT, publishEvents);
     document.addEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
     document.addEventListener(EARTHQUAKE_LOAD_MORE_EVENT, loadMore);
     document.addEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);
     map.once("unload", () => {
       requestId++;
       document.removeEventListener("quakestrike:filters", handleFilters);
+      document.removeEventListener(EARTHQUAKE_EVENTS_REQUEST_EVENT, publishEvents);
       document.removeEventListener(EARTHQUAKE_FOCUS_EVENT, handleEarthquakeFocus);
       document.removeEventListener(EARTHQUAKE_LOAD_MORE_EVENT, loadMore);
       document.removeEventListener(EARTHQUAKE_RENDER_EVENTS_EVENT, handleRenderedEvents);

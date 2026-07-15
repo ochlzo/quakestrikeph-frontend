@@ -168,3 +168,42 @@
 .earthquake-marker--magnitude-5-plus {
   fill: var(--magnitude-5-plus);
 }
+
+.earthquake-marker--trigger {
+  stroke: var(--foreground);
+  stroke-width: 3;
+}
+
+.earthquake-marker--post-forecast {
+  stroke: var(--muted-foreground);
+  stroke-dasharray: 3 2;
+  stroke-width: 2;
+}
+
+.forecast-distance-ring {
+  fill: var(--muted-foreground);
+  fill-opacity: 0.04;
+  stroke: var(--muted-foreground);
+  stroke-opacity: 0.9;
+  stroke-width: 2;
+}
+
+.forecast-distance-ring--likely {
+  fill: var(--primary);
+  fill-opacity: 0.1;
+  stroke: var(--primary);
+  stroke-opacity: 1;
+  stroke-width: 4;
+}
+
+.forecast-distance-ring--beyond {
+  stroke-dasharray: 8 6;
+}
+
+.forecast-distance-label {
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}

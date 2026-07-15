@@ -3,6 +3,7 @@ import type { MagnitudeRange } from "./magnitude-ranges"
 export const FORECAST_LIKELIHOODS = ["low", "medium", "high"] as const
 export const FILTERS_COMPLETE_EVENT = "quakestrike:filters-complete"
 export const EARTHQUAKE_EVENTS_UPDATED_EVENT = "quakestrike:earthquake-events-updated"
+export const EARTHQUAKE_EVENTS_REQUEST_EVENT = "quakestrike:earthquake-events-request"
 export const EARTHQUAKE_SELECTED_EVENT = "quakestrike:earthquake-selected"
 export const EARTHQUAKE_FOCUS_EVENT = "quakestrike:earthquake-focus"
 export const EARTHQUAKE_RENDER_EVENTS_EVENT = "quakestrike:earthquake-render-events"

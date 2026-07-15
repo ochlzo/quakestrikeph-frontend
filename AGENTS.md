@@ -14,8 +14,17 @@
 - Use the shared document events in `src/lib/earthquake-map-filters.ts` to connect React UI and Leaflet; do not couple sidebar components directly to Leaflet.
 - Clicking a pin selects and scrolls to its event and opens its popup. A pin with a forecast also opens the forecast sidebar; a pin without one does not. Clicking a list event centers and zooms the map, selects its pin, and opens its popup without automatically opening a closed forecast sidebar.
 - Keep every pin the same size. Magnitude controls pin color through the shared magnitude ranges used by the filters and legend.
-- Popup content is raw event information only: centered location, date, latitude/longitude, magnitude, and depth. Forecast pins show details in the forecast sidebar instead of a popup link. Keep the existing `No forecast available see why` fallback and link styling unchanged for events without forecasts.
+- Popup content keeps the raw event information: centered location, date, latitude/longitude, magnitude, and depth. Forecast pins add `View forecast discussion →` at the popup footer and link to `/forecast?event=<id>`. Keep the existing `No forecast available see why` fallback and link styling unchanged for events without forecasts.
 - Do not reintroduce demo data as production map data. Preserve the existing mobile bounds and tile-buffer behavior unless intentionally changing map interaction.
+
+## Forecast discussion and playback
+
+- `/forecast?event=<id>` is a static Astro route with a client-only React report. It loads the trigger, forecast, and playback data through `src/data/earthquakes.ts`.
+- Playback begins at forecast generation time. Its initial horizon is 24 hours, then it continues automatically in 24-hour increments until the conservative `observed_through` watermark; it does not poll after catching up.
+- The discussion compares observations only within the original 24-hour forecast window. Later events are playback context, and all nearby events must be described as catalog observations rather than confirmed aftershocks.
+- Playback uses `get_forecast_playback_page(...)`, a chronological `(event_time, id)` cursor RPC limited to 100 events per page and events within 100 km of the trigger.
+- Keep the trigger visible. Observation popups show only magnitude, depth, and distance from the trigger. Post-window markers retain magnitude color and use a secondary stroke.
+- Show the most-likely distance boundaries by default. The accessible all-rings switch shows 10 km, 25 km, and 50 km boundaries while keeping the likely band visually stronger; the beyond-50 km boundary is dashed.
 
 ## Sidebar terminology
 

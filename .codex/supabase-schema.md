@@ -31,6 +31,14 @@ The map uses `filter_earthquake_events(...)` for both recent events and location
 
 The supporting `raw_earthquake_events_location_trgm_idx` GiST expression index is defined in `supabase/migrations/`.
 
+## Forecast playback RPC
+
+`get_forecast_playback_page(trigger_event_id, cursor_event_time, cursor_event_id, result_limit)` is the browser-safe forecast playback boundary. It converts Philippine-local `RawEarthquakeEvents.event_time` before comparisons, returns chronological observations within 100 km, excludes the trigger, caps pages at 100 rows, and uses `(event_time, id)` cursor pagination so equal timestamps remain stable.
+
+The RPC returns the fixed forecast start/end, a conservative `observed_through` watermark, `pending | current | complete | delayed` freshness, events, `next_cursor`, and `has_more`. The watermark is the latest successful scheduled/manual `ScraperRuns.started_at`. No later success after the forecast is `pending`; coverage inside 24 hours is `current`; coverage through 24 hours is `complete`; a newer failed attempt after the last success is `delayed`.
+
+The function is `security definer` so it can expose only this conservative watermark without granting browser roles direct access to `ScraperRuns`. Execute is revoked from `public` and granted only to `anon` and `authenticated`.
+
 ## RLS
 
 RLS is enabled on all four tables. Browser map access must be read-only:
@@ -38,6 +46,7 @@ RLS is enabled on all four tables. Browser map access must be read-only:
 - Allow `SELECT` for `anon` and `authenticated` on `RawEarthquakeEvents`.
 - Allow `SELECT` for `anon` and `authenticated` on `SeisPredictions_v1`.
 - Do not expose `ScraperRuns` or `ProcessingJobs` to the browser.
+- Do not replace the playback RPC watermark with direct browser access to `ScraperRuns`.
 
 Required policies (apply through Supabase, not from this file):
 

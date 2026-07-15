@@ -9,6 +9,7 @@ import { EarthquakeForecastSidebar } from "@/components/earthquake-forecast-side
 import { searchEarthquakeMarkers, type EarthquakeMarker } from "@/data/earthquakes"
 import {
   EARTHQUAKE_EVENTS_UPDATED_EVENT,
+  EARTHQUAKE_EVENTS_REQUEST_EVENT,
   EARTHQUAKE_FOCUS_EVENT,
   EARTHQUAKE_LOAD_MORE_EVENT,
   EARTHQUAKE_RENDER_EVENTS_EVENT,
@@ -107,6 +108,7 @@ function MapPageContent({ children }: MapPageShellProps) {
     document.addEventListener(EARTHQUAKE_SELECTED_EVENT, selectEvent)
     document.addEventListener(FILTERS_ACTIVE_EVENT, updateFilterStatus)
     document.addEventListener("quakestrike:filters", updateSearchFilters)
+    document.dispatchEvent(new Event(EARTHQUAKE_EVENTS_REQUEST_EVENT))
     return () => {
       document.removeEventListener(EARTHQUAKE_EVENTS_UPDATED_EVENT, updateEvents)
       document.removeEventListener(EARTHQUAKE_SELECTED_EVENT, selectEvent)
