@@ -16,6 +16,7 @@ import {
   MAGNITUDE_RANGE_OPTIONS,
   parseCustomMagnitudeRanges,
 } from "@/lib/magnitude-ranges"
+import { sanitizeMagnitudeRangeInput } from "@/lib/input-security"
 
 const PRESET_VALUES = MAGNITUDE_RANGE_OPTIONS.map((option) => option.value)
 const OPTION_BY_VALUE = new Map(
@@ -59,7 +60,7 @@ export function MagnitudeFilterField({
         onValueChange={(nextValue) => onValueChange(nextValue)}
         inputValue={inputValue}
         onInputValueChange={(nextValue) => {
-          setInputValue(nextValue)
+          setInputValue(sanitizeMagnitudeRangeInput(nextValue))
           setInputError(undefined)
         }}
         itemToStringLabel={(item) => OPTION_BY_VALUE.get(item)?.label ?? item}

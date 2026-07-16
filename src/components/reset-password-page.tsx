@@ -15,6 +15,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/db/supabase";
+import {
+  sanitizeEmailInput,
+  sanitizeOtpInput,
+  sanitizePasswordInput,
+  validateEmailInput,
+  validateOtpInput,
+  validatePasswordInput,
+} from "@/lib/input-security";
 import { cn } from "@/lib/utils";
 
 type StatusState =
@@ -55,16 +63,17 @@ export function ResetPasswordPage() {
   }
 
   async function sendCode() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setStatus({ kind: "error", message: "Enter your email first." });
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
       return false;
     }
 
     setStatus({ kind: "idle" });
     setIsSendingCode(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+    const { error } = await supabase.auth.resetPasswordForEmail(emailResult.value);
 
     setIsSendingCode(false);
 
@@ -88,22 +97,25 @@ export function ResetPasswordPage() {
   async function handleResetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const trimmedEmail = email.trim();
-    const trimmedOtp = otp.trim();
-
-    if (!trimmedEmail) {
-      setStatus({ kind: "error", message: "Enter your email first." });
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
       setStep("request");
       return;
     }
 
-    if (!trimmedOtp) {
-      setStatus({ kind: "error", message: "Enter the one-time code from your email." });
+    const otpResult = validateOtpInput(otp);
+    if (otpResult.error) {
+      setOtp(otpResult.value);
+      setStatus({ kind: "error", message: otpResult.error });
       return;
     }
 
-    if (!newPassword) {
-      setStatus({ kind: "error", message: "Enter a new password." });
+    const passwordResult = validatePasswordInput(newPassword);
+    if (passwordResult.error) {
+      setNewPassword(passwordResult.value);
+      setStatus({ kind: "error", message: passwordResult.error });
       return;
     }
 
@@ -111,8 +123,8 @@ export function ResetPasswordPage() {
     setIsResettingPassword(true);
 
     const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: trimmedEmail,
-      token: trimmedOtp,
+      email: emailResult.value,
+      token: otpResult.value,
       type: "recovery",
     });
 
@@ -126,7 +138,7 @@ export function ResetPasswordPage() {
     }
 
     const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
+      password: passwordResult.value,
     });
 
     setIsResettingPassword(false);
@@ -206,7 +218,7 @@ export function ResetPasswordPage() {
                       autoComplete="email"
                       placeholder="name@example.com"
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(event) => setEmail(sanitizeEmailInput(event.target.value))}
                       required
                     />
                   </div>
@@ -240,7 +252,7 @@ export function ResetPasswordPage() {
                       autoComplete="one-time-code"
                       placeholder="Enter the code from your email"
                       value={otp}
-                      onChange={(event) => setOtp(event.target.value)}
+                      onChange={(event) => setOtp(sanitizeOtpInput(event.target.value))}
                       required
                     />
                   </div>
@@ -254,7 +266,7 @@ export function ResetPasswordPage() {
                       autoComplete="new-password"
                       placeholder="Enter a new password"
                       value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
+                      onChange={(event) => setNewPassword(sanitizePasswordInput(event.target.value))}
                       required
                     />
                   </div>
