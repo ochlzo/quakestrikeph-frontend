@@ -7,6 +7,7 @@ import { supabase } from "@/db/supabase";
 
 type PubUserRow = {
   PUser_id: number | null;
+  role: string | null;
   Email: string | null;
   DisplayName: string | null;
   FName: string | null;
@@ -24,6 +25,14 @@ type PubUserAuditRow = {
   new_values: AuditValues | null;
   changed_by_email: string | null;
   changed_at: string;
+};
+
+type PasswordResetLogRow = {
+  log_id: number;
+  reset_email: string;
+  status: "completed";
+  reset_type: "email_otp";
+  completed_at: string;
 };
 
 const auditDateFormatter = new Intl.DateTimeFormat("en-PH", {
@@ -46,10 +55,13 @@ function getUserLabel(user: PubUserRow) {
 export function AdminUsersPanel() {
   const [users, setUsers] = useState<PubUserRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<PubUserAuditRow[]>([]);
+  const [resetLogs, setResetLogs] = useState<PasswordResetLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingAudit, setIsLoadingAudit] = useState(true);
+  const [isLoadingResetLogs, setIsLoadingResetLogs] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [resetLogError, setResetLogError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -57,19 +69,30 @@ export function AdminUsersPanel() {
     async function loadUsers() {
       setIsLoading(true);
       setIsLoadingAudit(true);
+      setIsLoadingResetLogs(true);
 
       const usersRequest = supabase
         .from("PubUser")
-        .select('PUser_id, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
+        .select('PUser_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
         .order("PUser_id", { ascending: false });
       const auditRequest = supabase
         .from("PubUserAuditLog")
         .select("audit_id, profile_email, action, changed_fields, old_values, new_values, changed_by_email, changed_at")
         .order("changed_at", { ascending: false })
         .limit(50);
-      const [{ data, error: queryError }, { data: auditData, error: auditQueryError }] = await Promise.all([
+      const resetLogRequest = supabase
+        .from("PasswordResetLog")
+        .select("log_id, reset_email, status, reset_type, completed_at")
+        .order("completed_at", { ascending: false })
+        .limit(50);
+      const [
+        { data, error: queryError },
+        { data: auditData, error: auditQueryError },
+        { data: resetLogData, error: resetLogQueryError },
+      ] = await Promise.all([
         usersRequest,
         auditRequest,
+        resetLogRequest,
       ]);
 
       if (!active) {
@@ -92,8 +115,17 @@ export function AdminUsersPanel() {
         setAuditError(null);
       }
 
+      if (resetLogQueryError) {
+        setResetLogs([]);
+        setResetLogError(resetLogQueryError.message);
+      } else {
+        setResetLogs((resetLogData ?? []) as PasswordResetLogRow[]);
+        setResetLogError(null);
+      }
+
       setIsLoading(false);
       setIsLoadingAudit(false);
+      setIsLoadingResetLogs(false);
     }
 
     void loadUsers();
@@ -235,6 +267,72 @@ export function AdminUsersPanel() {
         <div className="border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
+              <HistoryIcon className="size-5 text-[color:var(--destructive)]" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Password reset log
+              </p>
+              <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                Password recovery history
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {isLoadingResetLogs ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+              <LoaderCircle className="size-4 animate-spin" />
+              Loading password reset log
+            </div>
+          ) : resetLogError ? (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {resetLogError}
+            </div>
+          ) : resetLogs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-muted/25 px-4 py-10 text-center text-sm text-muted-foreground">
+              No password resets have been recorded yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="bg-muted/50 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">When</th>
+                    <th className="px-4 py-3 font-semibold">Email</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resetLogs.map((log) => (
+                    <tr key={log.log_id} className="border-t border-border">
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        {auditDateFormatter.format(new Date(log.completed_at))}
+                      </td>
+                      <td className="px-4 py-4 align-top font-medium text-foreground">
+                        {log.reset_email}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm capitalize text-muted-foreground">
+                        {log.status}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        {log.reset_type}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
+        <div className="border-b border-border px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
               <BadgeCheck className="size-5 text-[color:var(--destructive)]" />
             </div>
             <div>
@@ -267,6 +365,7 @@ export function AdminUsersPanel() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="bg-muted/50 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   <tr>
+                    <th className="px-4 py-3 font-semibold">Role</th>
                     <th className="px-4 py-3 font-semibold">User</th>
                     <th className="px-4 py-3 font-semibold">Email</th>
                     <th className="px-4 py-3 font-semibold">Mobile</th>
@@ -276,6 +375,9 @@ export function AdminUsersPanel() {
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.PUser_id ?? getUserLabel(user)} className="border-t border-border">
+                      <td className="px-4 py-4 align-top text-sm capitalize text-muted-foreground">
+                        {user.role ?? "user"}
+                      </td>
                       <td className="px-4 py-4 align-top">
                         <div className="font-medium text-foreground">{getUserLabel(user)}</div>
                         <div className="mt-1 text-xs text-muted-foreground">

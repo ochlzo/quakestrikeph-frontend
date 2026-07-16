@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { AdminGate } from "../components/admin-gate";
+import { AdminLogoutButton } from "../components/admin-logout-button";
 import { AdminUsersPanel } from "../components/admin-users-panel";
 ---
 
@@ -20,6 +21,10 @@ import { AdminUsersPanel } from "../components/admin-users-panel";
               The user list below comes from <span class="font-medium text-foreground">PubUser</span>, which is synced from Supabase Auth logins and kept current as accounts sign in.
             </p>
           </div>
+        </div>
+
+        <div class="mb-6 flex justify-end">
+          <AdminLogoutButton client:load />
         </div>
 
         <AdminUsersPanel client:load />

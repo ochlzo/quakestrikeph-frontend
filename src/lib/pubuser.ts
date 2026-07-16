@@ -11,6 +11,7 @@ import {
 export type PubUserProfile = {
   PUser_id: number | null;
   auth_user_id: string | null;
+  role: string | null;
   Email: string | null;
   DisplayName: string | null;
   FName: string | null;
@@ -104,7 +105,7 @@ async function getPubUserRowByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email);
   const { data, error } = await supabase
     .from("PubUser")
-    .select('PUser_id, auth_user_id, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
+    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
     .ilike("Email", normalizedEmail)
     .maybeSingle<PubUserProfile>();
 
@@ -133,12 +134,13 @@ export async function ensurePubUserRow(user: User) {
     .from("PubUser")
     .insert({
       auth_user_id: user.id,
+      role: "user",
       Email: normalizedEmail,
       DisplayName: displayName ? sanitizeNameInput(displayName).trim() : null,
       ...nameParts,
       MobileNum: null,
     })
-    .select('PUser_id, auth_user_id, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
+    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
     .maybeSingle<PubUserProfile>();
 
   if (error) {

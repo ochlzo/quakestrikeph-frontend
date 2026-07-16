@@ -27,6 +27,17 @@ export function AdminGate({ children }: { children: ReactNode }) {
         // Continue with the auth lookup; the row may already exist or be retried elsewhere.
       }
 
+      const { data: profile, error } = await supabase
+        .from("PubUser")
+        .select('role')
+        .eq("auth_user_id", user.id)
+        .maybeSingle<{ role: string | null }>();
+
+      if (error || profile?.role !== "admin") {
+        if (active) setStatus("denied");
+        return;
+      }
+
       if (!active) return;
       setStatus("allowed");
     }
@@ -67,7 +78,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            This area is available after you sign in and complete your PubUser profile.
+            This area is available after you sign in as an admin account and complete your PubUser profile.
           </p>
         </div>
       </main>

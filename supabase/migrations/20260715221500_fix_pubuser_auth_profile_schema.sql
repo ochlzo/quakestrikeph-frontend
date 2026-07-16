@@ -30,6 +30,31 @@ alter table public."PubUser"
   add constraint "PubUser_auth_user_id_key" unique (auth_user_id);
 
 alter table public."PubUser"
+  add column if not exists role text not null default 'user';
+
+alter table public."PubUser"
+  drop constraint if exists "PubUser_role_check";
+
+alter table public."PubUser"
+  add constraint "PubUser_role_check"
+  check (role in ('user', 'admin'));
+
+create or replace function public.is_admin_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public."PubUser"
+    where auth_user_id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+alter table public."PubUser"
   enable row level security;
 
 drop policy if exists "pubuser read own row" on public."PubUser";
@@ -38,6 +63,13 @@ on public."PubUser"
 for select
 to authenticated
 using (auth.uid() = auth_user_id);
+
+drop policy if exists "pubuser read admin rows" on public."PubUser";
+create policy "pubuser read admin rows"
+on public."PubUser"
+for select
+to authenticated
+using (public.is_admin_user());
 
 drop policy if exists "pubuser insert own row" on public."PubUser";
 create policy "pubuser insert own row"
