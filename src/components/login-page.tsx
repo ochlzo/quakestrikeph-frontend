@@ -157,7 +157,7 @@ function GoogleMark({ className }: { className?: string }) {
   );
 }
 
-export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
+export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("signIn");
   const [signInStep, setSignInStep] = useState<SignInStep>("password");
   const [signUpStep, setSignUpStep] = useState<SignUpStep>("email");
@@ -579,10 +579,6 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
           <Card className="[--card-spacing:--spacing(6)] shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
             <CardHeader>
-              {/* <div className="inline-flex items-center gap-2 self-start rounded-full border border-border bg-muted/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-[color:var(--destructive)]" />
-                Protected access
-              </div> */}
               <CardTitle>
                 {authMode === "signIn" ? "Welcome back" : "Join QuakeStrike PH"}
               </CardTitle>

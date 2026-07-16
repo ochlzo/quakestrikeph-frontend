@@ -156,7 +156,7 @@ export function ResetPasswordPage() {
       message: "Password updated. Redirecting to the dashboard.",
     });
 
-    window.location.assign("/dashboard");
+    window.location.assign("/");
   }
 
   return (

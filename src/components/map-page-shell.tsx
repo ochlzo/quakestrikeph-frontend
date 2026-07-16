@@ -272,7 +272,7 @@ function AccountCenter() {
   async function handleLogout() {
     setIsLoggingOut(true);
     await supabase.auth.signOut();
-    window.location.assign("/login?redirectTo=/dashboard");
+    window.location.assign("/login?redirectTo=/");
   }
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
@@ -348,7 +348,7 @@ function AccountCenter() {
   if (!user) {
     return (
       <a
-        href="/login?redirectTo=/dashboard"
+        href="/login?redirectTo=/"
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
           "h-8 rounded-full px-3 text-xs font-semibold shadow-sm",
