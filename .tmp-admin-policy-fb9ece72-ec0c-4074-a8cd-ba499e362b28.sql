@@ -1,0 +1,1 @@
+drop policy if exists "pubuser read admin rows" on public."PubUser";

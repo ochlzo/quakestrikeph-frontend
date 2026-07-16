@@ -1,0 +1,1 @@
+select to_regclass($$public."PasswordResetLog"$$) as reset_log, to_regclass($$public."PubUserAuditLog"$$) as audit_log, to_regclass($$public."PubUser"$$) as pubuser;

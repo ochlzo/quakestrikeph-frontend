@@ -1,0 +1,1 @@
+select policyname from pg_policies where schemaname = 'public' and tablename = 'PubUser' and policyname = 'pubuser read admin rows';

@@ -172,6 +172,20 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const skipNextAuthRedirectRef = useRef(false);
 
+  async function getPostLoginRedirect(userId: string) {
+    const { data, error } = await supabase
+      .from("PubUser")
+      .select("role")
+      .eq("auth_user_id", userId)
+      .maybeSingle<{ role: string | null }>();
+
+    if (!error && data?.role === "admin") {
+      return "/admin";
+    }
+
+    return redirectTo;
+  }
+
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
@@ -189,7 +203,8 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
           // The dashboard/account center retries the sync if needed.
         }
 
-        window.location.assign(buildRedirectUrl(redirectTo));
+        const target = await getPostLoginRedirect(session.user.id);
+        window.location.assign(buildRedirectUrl(target));
       })();
     });
 
@@ -258,7 +273,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
         }
       }
 
-      window.location.assign(buildRedirectUrl(redirectTo));
+      const target = data.session?.user
+        ? await getPostLoginRedirect(data.session.user.id)
+        : redirectTo;
+      window.location.assign(buildRedirectUrl(target));
       return;
     }
   }
@@ -308,7 +326,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
       }
     }
 
-    window.location.assign(buildRedirectUrl(redirectTo));
+    const target = data.session?.user
+      ? await getPostLoginRedirect(data.session.user.id)
+      : redirectTo;
+    window.location.assign(buildRedirectUrl(target));
   }
 
   async function handleSendSignUpOtp(event?: FormEvent<HTMLFormElement>) {
@@ -423,7 +444,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
       kind: "success",
       message: "Account created. Redirecting to the dashboard.",
     });
-    window.location.assign(buildRedirectUrl(redirectTo));
+    const target = data.session?.user
+      ? await getPostLoginRedirect(data.session.user.id)
+      : redirectTo;
+    window.location.assign(buildRedirectUrl(target));
   }
 
   async function handleResendConfirmation(options?: { suppressBusyState?: boolean }) {

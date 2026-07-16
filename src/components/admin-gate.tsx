@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import { LoaderCircle, ShieldAlert } from "lucide-react";
 
 import { supabase } from "@/db/supabase";
@@ -26,6 +25,17 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
         await ensurePubUserRow(user);
       } catch {
         // Continue with the auth lookup; the row may already exist or be retried elsewhere.
+      }
+
+      const { data: profile, error } = await supabase
+        .from("PubUser")
+        .select('role')
+        .eq("auth_user_id", user.id)
+        .maybeSingle<{ role: string | null }>();
+
+      if (error || profile?.role !== "admin") {
+        if (active) setStatus("denied");
+        return;
       }
 
       if (!active) return;
@@ -68,7 +78,7 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            This area is available after you sign in and complete your PubUser profile.
+            This area is available after you sign in as an admin account and complete your PubUser profile.
           </p>
         </div>
       </main>

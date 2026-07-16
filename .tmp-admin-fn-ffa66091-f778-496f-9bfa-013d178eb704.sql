@@ -1,0 +1,1 @@
+create or replace function public.is_admin_user() returns boolean language sql stable security definer set search_path = public as $$ select exists (select 1 from public."PubUser" where auth_user_id = auth.uid() and role = 'admin') $$;

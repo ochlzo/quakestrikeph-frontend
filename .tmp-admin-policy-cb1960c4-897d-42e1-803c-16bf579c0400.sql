@@ -1,0 +1,1 @@
+create policy "pubuser read admin rows" on public."PubUser" for select to authenticated using (public.is_admin_user());

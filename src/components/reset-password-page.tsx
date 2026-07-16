@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, LoaderCircle, LockKeyhole, MapPinned } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,17 @@ type StatusState =
 
 type Step = "request" | "verify";
 
+type PasswordResetLogInsert = {
+  auth_user_id: string;
+  reset_email: string;
+  status: "completed";
+  completed_at: string;
+  reset_type: "email_otp";
+};
+
+const OTP_VALIDITY_SECONDS = 3 * 60;
+const RESEND_COOLDOWN_SECONDS = 60;
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
     const message = String((error as { message?: unknown }).message ?? "").trim()
@@ -47,6 +58,13 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+function formatCountdown(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 export function ResetPasswordPage() {
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
@@ -54,7 +72,28 @@ export function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    timerRef.current = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  const otpRemainingSeconds = otpExpiresAt ? Math.ceil((otpExpiresAt - now) / 1000) : 0;
+  const resendRemainingSeconds = resendAvailableAt ? Math.ceil((resendAvailableAt - now) / 1000) : 0;
+  const isOtpExpired = otpExpiresAt !== null && otpRemainingSeconds <= 0;
+  const canResend = resendAvailableAt === null || resendRemainingSeconds <= 0;
 
   async function handleSendCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,22 +112,33 @@ export function ResetPasswordPage() {
     setStatus({ kind: "idle" });
     setIsSendingCode(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(emailResult.value);
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: emailResult.value,
+      options: {
+        shouldCreateUser: false,
+      },
+    });
 
     setIsSendingCode(false);
 
-    if (error) {
+    if (otpError) {
       setStatus({
         kind: "error",
-        message: getErrorMessage(error, "Unable to send the one-time code. Please check your email template and SMTP setup."),
+        message: getErrorMessage(
+          otpError,
+          "Unable to send the one-time code. Please check your email template and SMTP setup.",
+        ),
       });
       return false;
     }
 
+    const startedAt = Date.now();
+    setOtpExpiresAt(startedAt + OTP_VALIDITY_SECONDS * 1000);
+    setResendAvailableAt(startedAt + RESEND_COOLDOWN_SECONDS * 1000);
     setStep("verify");
     setStatus({
       kind: "success",
-      message: "We sent a one-time code to your email. Enter it below with your new password.",
+      message: `We sent a one-time code to your email. It expires in ${formatCountdown(OTP_VALIDITY_SECONDS)}.`,
     });
 
     return true;
@@ -112,6 +162,14 @@ export function ResetPasswordPage() {
       return;
     }
 
+    if (isOtpExpired) {
+      setStatus({
+        kind: "error",
+        message: "That one-time code has expired. Request a new code and try again.",
+      });
+      return;
+    }
+
     const passwordResult = validatePasswordInput(newPassword);
     if (passwordResult.error) {
       setNewPassword(passwordResult.value);
@@ -125,7 +183,7 @@ export function ResetPasswordPage() {
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email: emailResult.value,
       token: otpResult.value,
-      type: "recovery",
+      type: "email",
     });
 
     if (verifyError) {
@@ -151,9 +209,41 @@ export function ResetPasswordPage() {
       return;
     }
 
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+
+    if (!authUser) {
+      setStatus({
+        kind: "error",
+        message: "Password updated, but the signed-in account could not be confirmed for logging.",
+      });
+      return;
+    }
+
+    const resetLog: PasswordResetLogInsert = {
+      auth_user_id: authUser.id,
+      reset_email: emailResult.value,
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      reset_type: "email_otp",
+    };
+
+    const { error: logError } = await supabase.from("PasswordResetLog").insert(resetLog);
+
+    if (logError) {
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(
+          logError,
+          "Password updated, but the reset log could not be saved.",
+        ),
+      });
+      return;
+    }
+
     setStatus({
       kind: "success",
-      message: "Password updated. Redirecting to the dashboard.",
+      message: "Password updated. We logged the reset and will redirect you to the dashboard.",
     });
 
     window.location.assign("/dashboard");
@@ -187,7 +277,7 @@ export function ResetPasswordPage() {
               </div>
               <CardTitle>Reset your password</CardTitle>
               <CardDescription>
-                Enter your email first. We&apos;ll send a one-time code, then you can set a new password.
+                Enter the same email used on your account. We&apos;ll send a one-time code, then you can set a new password.
               </CardDescription>
             </CardHeader>
 
@@ -226,12 +316,17 @@ export function ResetPasswordPage() {
                   <Button
                     type="submit"
                     className="h-11 w-full rounded-xl"
-                    disabled={isSendingCode}
+                    disabled={isSendingCode || !canResend}
                   >
                     {isSendingCode ? (
                       <>
                         <LoaderCircle className="size-4 animate-spin" />
                         Sending code
+                      </>
+                    ) : !canResend ? (
+                      <>
+                        Resend available in {formatCountdown(resendRemainingSeconds)}
+                        <ArrowRight className="size-4" />
                       </>
                     ) : (
                       <>
@@ -253,8 +348,14 @@ export function ResetPasswordPage() {
                       placeholder="Enter the code from your email"
                       value={otp}
                       onChange={(event) => setOtp(sanitizeOtpInput(event.target.value))}
+                      aria-describedby="otp-timer"
                       required
                     />
+                    <p id="otp-timer" className="text-xs text-muted-foreground">
+                      {isOtpExpired
+                        ? "The code has expired. Request a new one."
+                        : `Code valid for ${formatCountdown(otpRemainingSeconds)}.`}
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -310,12 +411,12 @@ export function ResetPasswordPage() {
                     type="button"
                     variant="link"
                     className="h-auto p-0 text-sm font-medium text-muted-foreground"
-                    disabled={isSendingCode || isResettingPassword}
+                    disabled={isSendingCode || isResettingPassword || !canResend}
                     onClick={() => {
                       void sendCode()
                     }}
                   >
-                    Resend code
+                    {canResend ? "Resend code" : `Resend available in ${formatCountdown(resendRemainingSeconds)}`}
                   </Button>
                 </form>
               )}
@@ -325,7 +426,7 @@ export function ResetPasswordPage() {
               <div className="space-y-2 text-sm leading-6 text-muted-foreground">
                 <p className="font-medium text-foreground">Need help?</p>
                 <p>
-                  If the code expires, request a fresh one from this page. After you reset your password, you&apos;ll be sent back to the dashboard.
+                  If the code expires, request a fresh one from this page. After you reset your password, the change is logged for the admin dashboard and you&apos;ll be sent back to the dashboard.
                 </p>
                 <a
                   href="/login"

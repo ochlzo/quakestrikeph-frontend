@@ -1,0 +1,1 @@
+select role, count(*)::int as count from public."PubUser" group by role order by role;
