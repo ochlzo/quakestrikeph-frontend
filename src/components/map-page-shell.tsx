@@ -425,7 +425,7 @@ function AccountCenter() {
           <div className="px-1 py-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Account center
                 </p>
                 <h2 className="text-sm font-semibold tracking-[-0.02em]">
@@ -434,7 +434,7 @@ function AccountCenter() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 {!isProfileComplete ? (
-                  <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                  <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                     Needs setup
                   </span>
                 ) : null}
@@ -461,7 +461,7 @@ function AccountCenter() {
               <div className="space-y-2">
                 <Label
                   htmlFor="account-email"
-                  className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
                   Email
                 </Label>
@@ -477,7 +477,7 @@ function AccountCenter() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="account-first-name"
-                    className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                   >
                     First name
                   </Label>
@@ -499,7 +499,7 @@ function AccountCenter() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="account-middle-name"
-                    className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                   >
                     Middle name
                   </Label>
@@ -523,7 +523,7 @@ function AccountCenter() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="account-last-name"
-                    className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                   >
                     Last name
                   </Label>
@@ -545,7 +545,7 @@ function AccountCenter() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="account-mobile"
-                    className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                   >
                     Mobile number
                   </Label>
@@ -576,7 +576,7 @@ function AccountCenter() {
               <div className="space-y-2">
                 <Label
                   htmlFor="account-display-name"
-                  className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
                   Display name
                 </Label>
