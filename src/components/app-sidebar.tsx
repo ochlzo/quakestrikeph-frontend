@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import type { EarthquakeMarker } from "@/data/earthquakes";
+import { sanitizeSearchInput } from "@/lib/input-security";
 import { MAGNITUDE_RANGE_OPTIONS } from "@/lib/magnitude-ranges";
 import { EarthquakeEventList } from "@/components/earthquake-list-sidebar";
 import { Button } from "@/components/ui/button";
@@ -116,7 +117,7 @@ export function AppSidebar({
                 id="earthquake-location-search"
                 type="search"
                 value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
+                onChange={(event) => onSearchQueryChange(sanitizeSearchInput(event.target.value))}
                 placeholder="Search all provinces"
                 className="px-9 [&::-webkit-search-cancel-button]:hidden"
               />

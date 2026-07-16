@@ -2,23 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { LoaderCircle, ShieldAlert, ShieldCheck } from "lucide-react";
+import { LoaderCircle, ShieldAlert } from "lucide-react";
 
 import { supabase } from "@/db/supabase";
-
-type AdminRow = {
-  id: string;
-  is_admin: boolean;
-};
-
-function getDisplayName(user: User) {
-  return (
-    user.user_metadata?.full_name ??
-    user.user_metadata?.name ??
-    user.email ??
-    "Account"
-  );
-}
+import { ensurePubUserRow } from "@/lib/pubuser";
 
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"loading" | "allowed" | "denied">("loading");
@@ -35,19 +22,13 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, is_admin")
-        .eq("id", user.id)
-        .maybeSingle<AdminRow>();
-
-      if (!active) return;
-
-      if (error || !data?.is_admin) {
-        setStatus("denied");
-        return;
+      try {
+        await ensurePubUserRow(user);
+      } catch {
+        // Continue with the auth lookup; the row may already exist or be retried elsewhere.
       }
 
+      if (!active) return;
       setStatus("allowed");
     }
 
@@ -82,12 +63,12 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
                 QuakeStrike PH
               </p>
               <h1 className="text-2xl font-semibold tracking-[-0.03em]">
-                Admin only
+                Account access
               </h1>
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            This area is restricted to admin accounts. If you think this is a mistake, ask a project admin to mark your user row as `is_admin = true`.
+            This area is available after you sign in and complete your PubUser profile.
           </p>
         </div>
       </main>

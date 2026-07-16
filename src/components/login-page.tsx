@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   LoaderCircle,
@@ -23,6 +23,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/db/supabase";
+import {
+  sanitizeEmailInput,
+  sanitizeOtpInput,
+  sanitizePasswordInput,
+  validateEmailInput,
+  validateOtpInput,
+  validatePasswordInput,
+} from "@/lib/input-security";
+import { ensurePubUserRow } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
 
 type LoginPageProps = {
@@ -30,6 +39,8 @@ type LoginPageProps = {
 };
 
 type AuthMode = "signIn" | "signUp";
+type SignInStep = "password" | "otp";
+type SignUpStep = "email" | "verify";
 type SupabaseAuthError = {
   message?: unknown;
   status?: unknown;
@@ -146,41 +157,43 @@ function GoogleMark({ className }: { className?: string }) {
 
 export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("signIn");
+  const [signInStep, setSignInStep] = useState<SignInStep>("password");
+  const [signUpStep, setSignUpStep] = useState<SignUpStep>("email");
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isVerifyingSignUp, setIsVerifyingSignUp] = useState(false);
   const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
   const [isSendingLink, setIsSendingLink] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
+  const skipNextAuthRedirectRef = useRef(false);
 
   useEffect(() => {
-    let active = true;
-
-    async function redirectIfSessionExists() {
-      const { data } = await supabase.auth.getSession();
-
-      if (!active || !data.session) {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        return;
+      }
+      if (skipNextAuthRedirectRef.current) {
+        skipNextAuthRedirectRef.current = false;
         return;
       }
 
-      window.location.assign(buildRedirectUrl(redirectTo));
-    }
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) {
-          window.location.assign(buildRedirectUrl(redirectTo));
+      void (async () => {
+        try {
+          await ensurePubUserRow(session.user);
+        } catch {
+          // The dashboard/account center retries the sync if needed.
         }
-      },
-    );
 
-    void redirectIfSessionExists();
+        window.location.assign(buildRedirectUrl(redirectTo));
+      })();
+    });
 
     return () => {
-      active = false;
       authListener.subscription.unsubscribe();
     };
   }, [redirectTo]);
@@ -190,13 +203,26 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
     setStatus({ kind: "idle" });
     setNeedsEmailConfirmation(false);
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
+      return;
+    }
+
+    const passwordResult = validatePasswordInput(password, 1);
+    if (passwordResult.error) {
+      setPassword(passwordResult.value);
+      setStatus({ kind: "error", message: passwordResult.error });
+      return;
+    }
 
     if (authMode === "signIn") {
       setIsSigningIn(true);
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailResult.value,
+        password: passwordResult.value,
       });
 
       setIsSigningIn(false);
@@ -224,42 +250,187 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
         return;
       }
 
+      if (data.session) {
+        try {
+          await ensurePubUserRow(data.session.user);
+        } catch {
+          // The next authenticated page will retry the sync.
+        }
+      }
+
       window.location.assign(buildRedirectUrl(redirectTo));
+      return;
+    }
+  }
+
+  async function handleEmailOtpSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
+      setSignInStep("password");
+      return;
+    }
+
+    const otpResult = validateOtpInput(otp);
+    if (otpResult.error) {
+      setOtp(otpResult.value);
+      setStatus({ kind: "error", message: otpResult.error });
+      return;
+    }
+
+    setStatus({ kind: "idle" });
+    setIsSendingLink(true);
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: emailResult.value,
+      token: otpResult.value,
+      type: "email",
+    });
+
+    setIsSendingLink(false);
+
+    if (error) {
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(error, "The code was not accepted. Please request a new one."),
+      });
+      return;
+    }
+
+    if (data.session?.user) {
+      try {
+        await ensurePubUserRow(data.session.user);
+      } catch {
+        // The dashboard/account center retries the sync if needed.
+      }
+    }
+
+    window.location.assign(buildRedirectUrl(redirectTo));
+  }
+
+  async function handleSendSignUpOtp(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    setStatus({ kind: "idle" });
+    setNeedsEmailConfirmation(false);
+
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
       return;
     }
 
     setIsSigningUp(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailResult.value,
       options: {
-        emailRedirectTo: buildRedirectUrl(redirectTo),
+        shouldCreateUser: true,
       },
     });
 
     setIsSigningUp(false);
 
     if (error) {
-      setStatus({ kind: "error", message: error.message });
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(error, "Unable to send the verification code right now."),
+      });
       return;
     }
 
-    if (data.session) {
-      window.location.assign(buildRedirectUrl(redirectTo));
-      return;
-    }
-
+    setOtp("");
+    setPassword("");
+    setSignUpStep("verify");
     setStatus({
       kind: "success",
-      message: "Check your inbox to confirm your account, then sign in.",
+      message: "We sent a one-time code to your email. Enter it with your password to finish creating the account.",
     });
   }
 
+  async function handleVerifySignUpOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
+      setSignUpStep("email");
+      return;
+    }
+
+    const otpResult = validateOtpInput(otp);
+    if (otpResult.error) {
+      setOtp(otpResult.value);
+      setStatus({ kind: "error", message: otpResult.error });
+      return;
+    }
+
+    const passwordResult = validatePasswordInput(password);
+    if (passwordResult.error) {
+      setPassword(passwordResult.value);
+      setStatus({ kind: "error", message: passwordResult.error });
+      return;
+    }
+
+    setStatus({ kind: "idle" });
+    setIsVerifyingSignUp(true);
+    skipNextAuthRedirectRef.current = true;
+
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email: emailResult.value,
+      token: otpResult.value,
+      type: "email",
+    });
+
+    if (verifyError) {
+      skipNextAuthRedirectRef.current = false;
+      setIsVerifyingSignUp(false);
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(verifyError, "The code was not accepted. Please request a new one."),
+      });
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: passwordResult.value,
+    });
+
+    if (updateError) {
+      setIsVerifyingSignUp(false);
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(updateError, "The account was verified, but the password could not be saved."),
+      });
+      return;
+    }
+
+    if (data.session?.user) {
+      try {
+        await ensurePubUserRow(data.session.user);
+      } catch {
+        // The dashboard/account center retries the sync if needed.
+      }
+    }
+
+    setIsVerifyingSignUp(false);
+    setStatus({
+      kind: "success",
+      message: "Account created. Redirecting to the dashboard.",
+    });
+    window.location.assign(buildRedirectUrl(redirectTo));
+  }
+
   async function handleResendConfirmation(options?: { suppressBusyState?: boolean }) {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setStatus({ kind: "error", message: "Enter your email first." });
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
       return false;
     }
 
@@ -270,7 +441,7 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: trimmedEmail,
+      email: emailResult.value,
       options: {
         emailRedirectTo: buildRedirectUrl(redirectTo),
       },
@@ -326,9 +497,11 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     }
   }
 
-  async function handleMagicLink() {
-    if (!email.trim()) {
-      setStatus({ kind: "error", message: "Enter your email first." });
+  async function handleEmailOtpSignIn() {
+    const emailResult = validateEmailInput(email);
+    if (emailResult.error) {
+      setEmail(emailResult.value);
+      setStatus({ kind: "error", message: emailResult.error });
       return;
     }
 
@@ -336,9 +509,9 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     setIsSendingLink(true);
 
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+      email: emailResult.value,
       options: {
-        emailRedirectTo: buildRedirectUrl(redirectTo),
+        shouldCreateUser: false,
       },
     });
 
@@ -351,13 +524,16 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
     setStatus({
       kind: "success",
-      message: "Check your inbox for a secure sign-in link.",
+      message: "Check your inbox for a one-time sign-in code.",
     });
+    setOtp("");
+    setSignInStep("otp");
   }
 
   const isBusy =
     isSigningIn ||
     isSigningUp ||
+    isVerifyingSignUp ||
     isSigningInWithGoogle ||
     isSendingLink ||
     isResendingConfirmation;
@@ -460,7 +636,14 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                 )}
               </Button>
 
-              <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+              <form
+                className="space-y-4"
+                onSubmit={authMode === "signIn"
+                  ? signInStep === "password" ? handlePasswordSubmit : handleEmailOtpSubmit
+                  : signUpStep === "email"
+                    ? handleSendSignUpOtp
+                    : handleVerifySignUpOtp}
+              >
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -470,38 +653,62 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     autoComplete="email"
                     placeholder="name@example.com"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => setEmail(sanitizeEmailInput(event.target.value))}
+                    readOnly={(authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp")}
+                    className={cn(
+                      ((authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp")) && "bg-muted/40"
+                    )}
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="password">Password</Label>
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs font-medium text-muted-foreground"
-                      disabled={isBusy}
-                      onClick={() => {
-                        window.location.assign("/reset-password");
-                      }}
-                    >
-                      Forgot password?
-                    </Button>
+                {(authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp") ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="email-otp">One-time code</Label>
+                    <Input
+                      id="email-otp"
+                      name="otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Enter the code from your email"
+                      value={otp}
+                      onChange={(event) => setOtp(sanitizeOtpInput(event.target.value))}
+                      required
+                    />
                   </div>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete={authMode === "signIn" ? "current-password" : "new-password"}
-                    placeholder={authMode === "signIn" ? "Enter your password" : "Create a password"}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    required
-                  />
-                </div>
+                ) : null}
+
+                {(authMode === "signIn" && signInStep === "password") || (authMode === "signUp" && signUpStep === "verify") ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="password">Password</Label>
+                      {authMode === "signIn" && signInStep === "password" ? (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs font-medium text-muted-foreground"
+                          disabled={isBusy}
+                          onClick={() => {
+                            window.location.assign("/reset-password");
+                          }}
+                        >
+                          Forgot password?
+                        </Button>
+                      ) : null}
+                    </div>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete={authMode === "signIn" ? "current-password" : "new-password"}
+                      placeholder={authMode === "signIn" ? "Enter your password" : "Create a password"}
+                      value={password}
+                      onChange={(event) => setPassword(sanitizePasswordInput(event.target.value))}
+                      required
+                    />
+                  </div>
+                ) : null}
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
@@ -510,10 +717,15 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     disabled={isBusy}
                   >
                     {authMode === "signIn" ? (
-                      isSigningIn ? (
+                      isSigningIn || isSendingLink ? (
                         <>
                           <LoaderCircle className="size-4 animate-spin" />
-                          Signing in
+                          {signInStep === "password" ? "Signing in" : "Verifying code"}
+                        </>
+                      ) : signInStep === "otp" ? (
+                        <>
+                          Verify code
+                          <ArrowRight className="size-4" />
                         </>
                       ) : (
                         <>
@@ -524,11 +736,21 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     ) : isSigningUp ? (
                       <>
                         <LoaderCircle className="size-4 animate-spin" />
+                        Sending code
+                      </>
+                    ) : isVerifyingSignUp ? (
+                      <>
+                        <LoaderCircle className="size-4 animate-spin" />
                         Creating account
+                      </>
+                    ) : signUpStep === "email" ? (
+                      <>
+                        Send code
+                        <Mail className="size-4" />
                       </>
                     ) : (
                       <>
-                        Sign up
+                        Verify and create
                         <ArrowRight className="size-4" />
                       </>
                     )}
@@ -540,15 +762,24 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     className="h-11 flex-1 rounded-xl"
                     disabled={isBusy}
                     onClick={() => {
-                      if (authMode === "signIn") {
-                        void handleMagicLink();
+                      if (authMode === "signIn" && signInStep === "password") {
+                        void handleEmailOtpSignIn();
+                      } else if (authMode === "signIn") {
+                        setSignInStep("password");
+                        setOtp("");
+                        setStatus({ kind: "idle" });
+                      } else if (signUpStep === "verify") {
+                        void handleSendSignUpOtp();
                       } else {
+                        setSignUpStep("email");
+                        setOtp("");
+                        setPassword("");
                         setAuthMode("signIn");
                         setStatus({ kind: "idle" });
                       }
                     }}
                   >
-                    {authMode === "signIn" ? (
+                    {authMode === "signIn" && signInStep === "password" ? (
                       isSendingLink ? (
                         <>
                           <LoaderCircle className="size-4 animate-spin" />
@@ -557,7 +788,24 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                       ) : (
                         <>
                           <Mail className="size-4" />
-                          Email me a link
+                          Email me a code
+                        </>
+                      )
+                    ) : authMode === "signIn" ? (
+                      <>
+                        <ArrowRight className="size-4" />
+                        Use password
+                      </>
+                    ) : signUpStep === "verify" ? (
+                      isSigningUp ? (
+                        <>
+                          <LoaderCircle className="size-4 animate-spin" />
+                          Resending code
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="size-4" />
+                          Resend code
                         </>
                       )
                     ) : (
@@ -568,6 +816,23 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     )}
                   </Button>
                 </div>
+
+                {authMode === "signUp" && signUpStep === "verify" ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-sm font-medium text-muted-foreground"
+                    disabled={isBusy}
+                    onClick={() => {
+                      setSignUpStep("email");
+                      setOtp("");
+                      setPassword("");
+                      setStatus({ kind: "idle" });
+                    }}
+                  >
+                    Change email
+                  </Button>
+                ) : null}
               </form>
 
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -580,9 +845,14 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                   type="button"
                   variant="link"
                   className="h-auto p-0 text-sm font-medium text-foreground"
-                  disabled={isBusy}
-                  onClick={() => {
-                    setAuthMode(authMode === "signIn" ? "signUp" : "signIn");
+                disabled={isBusy}
+                onClick={() => {
+                    const nextMode = authMode === "signIn" ? "signUp" : "signIn";
+                    setAuthMode(nextMode);
+                    setSignInStep("password");
+                    setSignUpStep("email");
+                    setOtp("");
+                    setPassword("");
                     setStatus({ kind: "idle" });
                   }}
                 >

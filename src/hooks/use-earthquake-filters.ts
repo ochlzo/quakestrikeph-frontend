@@ -19,6 +19,10 @@ import {
   type Range,
   type RangeFilterKey,
 } from "@/lib/filter-validation"
+import {
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+} from "@/lib/input-security"
 import { magnitudeSelectionsToRanges } from "@/lib/magnitude-ranges"
 
 const initialFilters = { magnitude: false, depth: false, date: false }
@@ -61,7 +65,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
   function setRangeValue(field: keyof Range, value: string) {
     setRanges((current) => ({
       ...current,
-      depth: { ...current.depth, [field]: value },
+      depth: { ...current.depth, [field]: sanitizeIntegerInput(value) },
     }))
   }
 
@@ -154,7 +158,9 @@ export function useEarthquakeFilters(onApplied: () => void) {
     resetFilters,
     applyFilters,
     setSelectedMagnitudes,
-    setMinimumEstimatedStrongestAftershock,
+    setMinimumEstimatedStrongestAftershock: (value: string) => {
+      setMinimumEstimatedStrongestAftershock(sanitizeDecimalInput(value))
+    },
     setIncludeNoForecast,
   }
 }

@@ -1,31 +1,31 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { AdminGate } from "../components/admin-gate";
+import { AdminUsersPanel } from "../components/admin-users-panel";
 ---
 
 <Layout>
   <AdminGate client:load>
     <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(248,113,113,0.16),_transparent_28%),linear-gradient(180deg,_var(--background),_color-mix(in_oklch,var(--background),var(--foreground)_2%))] text-foreground">
-      <section class="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6 py-10 sm:px-10">
-        <div class="w-full rounded-3xl border border-border bg-card/95 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur">
-          <div class="flex items-center gap-3">
-            <div class="flex size-11 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
-              <span class="text-sm font-bold text-[color:var(--destructive)]">A</span>
-            </div>
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                QuakeStrike PH
-              </p>
-              <h1 class="text-2xl font-semibold tracking-[-0.03em]">
-                Admin Dashboard
-              </h1>
-            </div>
+      <section class="mx-auto min-h-screen max-w-6xl px-6 py-10 sm:px-10">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              QuakeStrike PH
+            </p>
+            <h1 class="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+              Admin Dashboard
+            </h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              The user list below comes from <span class="font-medium text-foreground">PubUser</span>, which is synced from Supabase Auth logins and kept current as accounts sign in.
+            </p>
           </div>
-
-          <div class="mt-8 rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-sm leading-6 text-muted-foreground">
-            Admin dashboard placeholder. Nothing is wired here yet.
+          <div class="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground shadow-sm">
+            Protected access
           </div>
         </div>
+
+        <AdminUsersPanel client:load />
       </section>
     </main>
   </AdminGate>

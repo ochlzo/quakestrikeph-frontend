@@ -27,14 +27,29 @@ import {
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { buttonVariants } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
 import { supabase } from "@/db/supabase"
+import {
+  ensurePubUserRow,
+  getPubUserDisplayName,
+  getPubUserProfile,
+  updatePubUserProfile,
+  type PubUserProfile,
+} from "@/lib/pubuser"
+import {
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  validateMobileNumberInput,
+} from "@/lib/input-security"
 import { cn } from "@/lib/utils"
-import { BookmarkIcon, LoaderCircle, LockKeyholeIcon, LogInIcon, LogOutIcon, UserCircle2Icon } from "lucide-react"
+import { BookmarkIcon, LoaderCircle, LockKeyholeIcon, LogInIcon, LogOutIcon, PencilIcon, UserCircle2Icon } from "lucide-react"
 
 type MapPageShellProps = { children: ReactNode }
 type SearchStatus = "idle" | "loading" | "ready" | "error"
@@ -46,8 +61,12 @@ type FilteredEventState = {
 }
 
 type ProfileRow = {
-  id: string
-  is_admin: boolean
+  Email: string | null
+  DisplayName: string | null
+  FName: string | null
+  Mname: string | null
+  LName: string | null
+  MobileNum: string | null
 }
 
 function dispatchRenderedEvents(events: EarthquakeMarker[], fitBounds = false) {
@@ -73,54 +92,138 @@ function getAvatarUrl(user: User) {
   )
 }
 
-function getInitials(user: User) {
-  const name = getDisplayName(user)
+function getInitialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "U"
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String((error as { message?: unknown }).message ?? "").trim()
+    if (message) {
+      return message
+    }
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error
+  }
+
+  return fallback
+}
+
+function getProfileFormValues(profile: PubUserProfile | null) {
+  return {
+    firstName: profile?.FName ?? "",
+    middleName: profile?.Mname ?? "",
+    lastName: profile?.LName ?? "",
+    displayName: getPubUserDisplayName(profile),
+    mobileNum: profile?.MobileNum ?? "",
+  }
+}
+
 function AccountCenter() {
   const [user, setUser] = React.useState<User | null>(null)
   const [profile, setProfile] = React.useState<ProfileRow | null>(null)
+  const [firstName, setFirstName] = React.useState("")
+  const [middleName, setMiddleName] = React.useState("")
+  const [lastName, setLastName] = React.useState("")
+  const [displayNameInput, setDisplayNameInput] = React.useState("")
+  const [mobileNum, setMobileNum] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false)
+  const [isEditingProfile, setIsEditingProfile] = React.useState(false)
   const [isLoggingOut, setIsLoggingOut] = React.useState(false)
   const [isOpen, setIsOpen] = React.useState(false)
+  const [status, setStatus] = React.useState<{ kind: "idle" | "error" | "success"; message: string }>({
+    kind: "idle",
+    message: "",
+  })
   const menuRef = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     let active = true
 
     async function loadUser() {
-      const { data } = await supabase.auth.getUser()
-      const currentUser = data.user ?? null
+      try {
+        const { data } = await supabase.auth.getUser()
+        const currentUser = data.user ?? null
 
-      if (!currentUser) {
+        if (!currentUser) {
+          if (active) {
+            setUser(null)
+            setProfile(null)
+            setFirstName("")
+            setMiddleName("")
+            setLastName("")
+            setDisplayNameInput("")
+            setMobileNum("")
+            setIsEditingProfile(false)
+          }
+          return
+        }
+
+        if (active) {
+          setUser(currentUser)
+        }
+
+        try {
+          await ensurePubUserRow(currentUser)
+        } catch {
+          // If the sync fails, the next protected page can retry.
+        }
+
+        let profileData: PubUserProfile | null = null
+        try {
+          profileData = await getPubUserProfile(currentUser.email ?? "")
+        } catch {
+          profileData = null
+        }
+
+        if (!active) return
+        setProfile(profileData)
+        const formValues = getProfileFormValues(profileData)
+        setFirstName(formValues.firstName)
+        setMiddleName(formValues.middleName)
+        setLastName(formValues.lastName)
+        setDisplayNameInput(formValues.displayName)
+        setMobileNum(formValues.mobileNum)
+        setIsEditingProfile(false)
+      } catch {
         if (active) {
           setUser(null)
           setProfile(null)
+          setFirstName("")
+          setMiddleName("")
+          setLastName("")
+          setDisplayNameInput("")
+          setMobileNum("")
+          setIsEditingProfile(false)
+        }
+      } finally {
+        if (active) {
           setIsLoading(false)
         }
-        return
       }
-
-      const { data: profileData } = await supabase
-        .from("users")
-        .select("id, is_admin")
-        .eq("id", currentUser.id)
-        .maybeSingle<ProfileRow>()
-
-      if (!active) return
-      setUser(currentUser)
-      setProfile(profileData ?? null)
-      setIsLoading(false)
     }
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setProfile(null)
-      setIsLoading(false)
+      if (!session?.user) {
+        setUser(null)
+        setProfile(null)
+        setFirstName("")
+        setMiddleName("")
+        setLastName("")
+        setDisplayNameInput("")
+        setMobileNum("")
+        setIsEditingProfile(false)
+        setIsLoading(false)
+        return
+      }
+
+      void loadUser()
     })
 
     void loadUser()
@@ -160,6 +263,67 @@ function AccountCenter() {
     window.location.assign("/login?redirectTo=/dashboard")
   }
 
+  async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user) return
+    if (!user.email) return
+
+    setStatus({ kind: "idle", message: "" })
+    const mobileNumberResult = validateMobileNumberInput(mobileNum)
+    if (mobileNumberResult.error) {
+      setMobileNum(mobileNumberResult.value)
+      setStatus({ kind: "error", message: mobileNumberResult.error })
+      return
+    }
+
+    setIsSavingProfile(true)
+
+    try {
+      await updatePubUserProfile(user.email, {
+        FName: firstName,
+        Mname: middleName,
+        LName: lastName,
+        DisplayName: displayNameInput,
+        MobileNum: mobileNumberResult.value,
+      })
+      const updatedProfile = await getPubUserProfile(user.email)
+      setProfile(updatedProfile)
+      const formValues = getProfileFormValues(updatedProfile)
+      setFirstName(formValues.firstName)
+      setMiddleName(formValues.middleName)
+      setLastName(formValues.lastName)
+      setDisplayNameInput(formValues.displayName)
+      setMobileNum(formValues.mobileNum)
+      setIsEditingProfile(false)
+      setStatus({
+        kind: "success",
+        message: "Your account details were saved to PubUser.",
+      })
+    } catch (error) {
+      console.error("Failed to save PubUser profile", error)
+      setStatus({
+        kind: "error",
+        message: getErrorMessage(
+          error,
+          "We could not save your account details right now.",
+        ),
+      })
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
+  function cancelProfileEdit() {
+    const formValues = getProfileFormValues(profile)
+    setFirstName(formValues.firstName)
+    setMiddleName(formValues.middleName)
+    setLastName(formValues.lastName)
+    setDisplayNameInput(formValues.displayName)
+    setMobileNum(formValues.mobileNum)
+    setStatus({ kind: "idle", message: "" })
+    setIsEditingProfile(false)
+  }
+
   if (isLoading) {
     return (
       <div className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-background/80 px-3 text-xs font-medium text-muted-foreground shadow-sm">
@@ -184,9 +348,17 @@ function AccountCenter() {
     )
   }
 
-  const displayName = getDisplayName(user)
   const avatarUrl = getAvatarUrl(user)
-  const isAdmin = profile?.is_admin === true
+  const email = profile?.Email ?? user.email ?? ""
+  const accountDisplayName = profile ? getPubUserDisplayName(profile) : getDisplayName(user)
+  const isAdmin = user.app_metadata?.role === "admin" || user.user_metadata?.role === "admin"
+  const isProfileComplete = Boolean(
+    profile?.DisplayName?.trim() ||
+    profile?.FName?.trim() ||
+      profile?.Mname?.trim() ||
+      profile?.LName?.trim() ||
+      profile?.MobileNum?.trim(),
+  )
 
   return (
     <div ref={menuRef} className="relative">
@@ -201,8 +373,8 @@ function AccountCenter() {
         onClick={() => setIsOpen((value) => !value)}
       >
         <Avatar className="h-7 w-7 rounded-full">
-          <AvatarImage src={avatarUrl ?? undefined} alt={displayName} />
-          <AvatarFallback className="rounded-full">{getInitials(user)}</AvatarFallback>
+          <AvatarImage src={avatarUrl ?? undefined} alt={accountDisplayName} />
+          <AvatarFallback className="rounded-full">{getInitialsFromName(accountDisplayName)}</AvatarFallback>
         </Avatar>
         <span className="hidden text-xs font-semibold text-foreground sm:inline-flex">
           Account center
@@ -217,20 +389,197 @@ function AccountCenter() {
         <div
           role="menu"
           aria-label="Account center"
-          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-[min(92vw,26rem)] max-h-[calc(100svh-5rem)] overflow-y-auto overflow-x-hidden rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl"
         >
           <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-3">
             <Avatar className="h-10 w-10 rounded-full">
-              <AvatarImage src={avatarUrl ?? undefined} alt={displayName} />
-              <AvatarFallback className="rounded-full">{getInitials(user)}</AvatarFallback>
+              <AvatarImage src={avatarUrl ?? undefined} alt={accountDisplayName} />
+              <AvatarFallback className="rounded-full">{getInitialsFromName(accountDisplayName)}</AvatarFallback>
             </Avatar>
             <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{displayName}</span>
+              <span className="truncate font-medium">{accountDisplayName}</span>
               <span className="truncate text-xs text-muted-foreground">{user.email}</span>
             </div>
           </div>
 
-          <div className="my-2 h-px bg-border" />
+          <div className="px-1 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Account center
+                </p>
+                <h2 className="text-sm font-semibold tracking-[-0.02em]">
+                  Complete your PubUser profile
+                </h2>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                    isProfileComplete
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                  )}
+                >
+                  {isProfileComplete ? "Profile saved" : "Needs setup"}
+                </span>
+                {!isEditingProfile ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "h-8 rounded-full px-3 text-xs",
+                    )}
+                    onClick={() => {
+                      setStatus({ kind: "idle", message: "" })
+                      setIsEditingProfile(true)
+                    }}
+                  >
+                    <PencilIcon className="size-3.5" />
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <form className="mt-4 space-y-4" onSubmit={handleProfileSave}>
+              <div className="space-y-2">
+                <Label htmlFor="account-email" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Email
+                </Label>
+                <Input id="account-email" value={email} readOnly className="h-10 rounded-xl bg-muted/40" />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="account-first-name" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    First name
+                  </Label>
+                  <Input
+                    id="account-first-name"
+                    value={firstName}
+                    onChange={(event) => setFirstName(sanitizeNameInput(event.target.value))}
+                    placeholder="First name"
+                    readOnly={!isEditingProfile}
+                    className={cn("h-10 rounded-xl", !isEditingProfile && "bg-muted/40")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="account-middle-name" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Middle name
+                  </Label>
+                  <Input
+                    id="account-middle-name"
+                    value={middleName}
+                    onChange={(event) => setMiddleName(sanitizeNameInput(event.target.value))}
+                    placeholder="Middle name"
+                    readOnly={!isEditingProfile}
+                    className={cn("h-10 rounded-xl", !isEditingProfile && "bg-muted/40")}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="account-last-name" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Last name
+                  </Label>
+                  <Input
+                    id="account-last-name"
+                    value={lastName}
+                    onChange={(event) => setLastName(sanitizeNameInput(event.target.value))}
+                    placeholder="Last name"
+                    readOnly={!isEditingProfile}
+                    className={cn("h-10 rounded-xl", !isEditingProfile && "bg-muted/40")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="account-mobile" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Mobile number
+                  </Label>
+                  <Input
+                    id="account-mobile"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="09[0-9]{9}"
+                    maxLength={11}
+                    value={mobileNum}
+                    onChange={(event) => setMobileNum(sanitizePhoneInput(event.target.value))}
+                    placeholder="09123456789"
+                    readOnly={!isEditingProfile}
+                    aria-invalid={status.kind === "error" && status.message.includes("Mobile number")}
+                    className={cn("h-10 rounded-xl", !isEditingProfile && "bg-muted/40")}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="account-display-name" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Display name
+                </Label>
+                <Input
+                  id="account-display-name"
+                  value={displayNameInput}
+                  onChange={(event) => setDisplayNameInput(sanitizeNameInput(event.target.value))}
+                  placeholder="Display name"
+                  readOnly={!isEditingProfile}
+                  className={cn("h-10 rounded-xl", !isEditingProfile && "bg-muted/40")}
+                />
+              </div>
+
+              {status.kind !== "idle" ? (
+                <p
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-xs",
+                    status.kind === "error" &&
+                      "border-destructive/20 bg-destructive/10 text-destructive",
+                    status.kind === "success" &&
+                      "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                  )}
+                  role={status.kind === "error" ? "alert" : "status"}
+                >
+                  {status.message}
+                </p>
+              ) : null}
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {isEditingProfile ? "Editing profile details." : "Saved in "}
+                  {!isEditingProfile ? <span className="font-medium text-foreground">PubUser</span> : null}
+                  {!isEditingProfile ? "." : null}
+                </p>
+                {isEditingProfile ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "sm" }),
+                        "h-9 rounded-full px-4",
+                      )}
+                      disabled={isSavingProfile}
+                      onClick={cancelProfileEdit}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className={cn(
+                        buttonVariants({ variant: "default", size: "sm" }),
+                        "h-9 rounded-full px-4",
+                      )}
+                      disabled={isSavingProfile}
+                    >
+                      {isSavingProfile ? "Saving..." : "Save profile"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </form>
+          </div>
+
+          <Separator className="my-2" />
 
           <button
             type="button"
