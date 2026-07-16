@@ -9,6 +9,7 @@ import type {
 } from "@/data/earthquakes"
 import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast"
 import { magnitudeMarkerBand } from "@/lib/earthquake-map-filters"
+import { addMapBasemap } from "@/lib/map-basemap"
 
 const DISTANCE_LABEL_PLACEMENT = {
   10: { angle: 145, direction: "left" },
@@ -87,12 +88,7 @@ export function ForecastPlaybackMap({
         attributionControl: false,
       })
       L.control.attribution({ position: "bottomleft" }).addTo(map)
-      L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
-        subdomains: ["0", "1", "2", "3"],
-        maxZoom: 20,
-        keepBuffer: 4,
-        attribution: '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
-      }).addTo(map)
+      void addMapBasemap(L, map)
 
       ringsRef.current = L.layerGroup().addTo(map)
       markersRef.current = L.layerGroup().addTo(map)

@@ -3,7 +3,7 @@
  * Map.astro
  *
  * A Leaflet map component that defaults to showing the Philippines,
- * loading Google Maps raster tiles for free without requiring an API key.
+ * loading Google Maps tiles with an OpenStreetMap fallback.
  *
  * Props:
  *   lat     - Initial center latitude  (default: 13.0 — Philippines-ish)
@@ -42,6 +42,7 @@ const {
 <script>
   import L from "leaflet";
   import { getRecentEarthquakeMarkerPage, type EarthquakeMarker } from "../data/earthquakes";
+  import { addMapBasemap } from "../lib/map-basemap";
   import {
     FILTERS_COMPLETE_EVENT,
     EARTHQUAKE_EVENTS_REQUEST_EVENT,
@@ -306,14 +307,7 @@ const {
 
     L.control.attribution({ position: "bottomleft" }).addTo(map);
 
-    // Load Google Maps standard roadmap tiles without requiring an API key.
-    L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
-      subdomains: ["0", "1", "2", "3"],
-      maxZoom: 20,
-      keepBuffer: 4,
-      attribution:
-        '&copy; <a href="https://www.google.com/permissions/geoguidelines/">Google</a> Map data',
-    }).addTo(map);
+    void addMapBasemap(L, map);
 
     setupEarthquakeLayer(map);
 

@@ -10,6 +10,7 @@
     "build": "astro build",
     "test:filters": "node --experimental-strip-types --test src/lib/earthquake-map-filters.test.ts",
     "test:forecast": "node --experimental-strip-types --test src/lib/earthquake-forecast.test.ts src/lib/forecast-playback.test.ts",
+    "test:map": "node --experimental-strip-types --test src/lib/map-basemap.test.ts",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@astrojs/react": "^6.0.0",
+    "@astrojs/vercel": "11.0.3",
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@supabase/supabase-js": "^2.110.2",
