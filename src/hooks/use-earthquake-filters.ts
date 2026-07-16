@@ -72,7 +72,8 @@ export function useEarthquakeFilters(onApplied: () => void) {
   function applyDatePreset(preset: DatePreset, days = 0) {
     const to = new Date()
     const from = new Date(to)
-    preset === "today" ? from.setHours(0, 0, 0, 0) : from.setDate(from.getDate() - days)
+    if (preset === "today") from.setHours(0, 0, 0, 0)
+    else from.setDate(from.getDate() - days)
     setFilters((current) => ({ ...current, date: true }))
     setDateRange({ from, to: preset === "today" ? endOfDay(to) : to })
     setSelectedDatePreset(preset)
@@ -86,7 +87,8 @@ export function useEarthquakeFilters(onApplied: () => void) {
   function toggleForecast(filter: ForecastFilterKey, option: string) {
     setSelectedForecasts((current) => {
       const selection = new Set(current[filter])
-      selection.has(option) ? selection.delete(option) : selection.add(option)
+      if (selection.has(option)) selection.delete(option)
+      else selection.add(option)
       return { ...current, [filter]: selection }
     })
   }

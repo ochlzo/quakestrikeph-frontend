@@ -79,7 +79,9 @@ function buildRedirectUrl(target: string) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
-    const message = String((error as { message?: unknown }).message ?? "").trim();
+    const message = String(
+      (error as { message?: unknown }).message ?? "",
+    ).trim();
     if (message && message !== "{}") {
       return message;
     }
@@ -173,25 +175,27 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
   const skipNextAuthRedirectRef = useRef(false);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        return;
-      }
-      if (skipNextAuthRedirectRef.current) {
-        skipNextAuthRedirectRef.current = false;
-        return;
-      }
-
-      void (async () => {
-        try {
-          await ensurePubUserRow(session.user);
-        } catch {
-          // The dashboard/account center retries the sync if needed.
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session?.user) {
+          return;
+        }
+        if (skipNextAuthRedirectRef.current) {
+          skipNextAuthRedirectRef.current = false;
+          return;
         }
 
-        window.location.assign(buildRedirectUrl(redirectTo));
-      })();
-    });
+        void (async () => {
+          try {
+            await ensurePubUserRow(session.user);
+          } catch {
+            // The dashboard/account center retries the sync if needed.
+          }
+
+          window.location.assign(buildRedirectUrl(redirectTo));
+        })();
+      },
+    );
 
     return () => {
       authListener.subscription.unsubscribe();
@@ -295,7 +299,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     if (error) {
       setStatus({
         kind: "error",
-        message: getErrorMessage(error, "The code was not accepted. Please request a new one."),
+        message: getErrorMessage(
+          error,
+          "The code was not accepted. Please request a new one.",
+        ),
       });
       return;
     }
@@ -338,7 +345,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     if (error) {
       setStatus({
         kind: "error",
-        message: getErrorMessage(error, "Unable to send the verification code right now."),
+        message: getErrorMessage(
+          error,
+          "Unable to send the verification code right now.",
+        ),
       });
       return;
     }
@@ -348,7 +358,8 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     setSignUpStep("verify");
     setStatus({
       kind: "success",
-      message: "We sent a one-time code to your email. Enter it with your password to finish creating the account.",
+      message:
+        "We sent a one-time code to your email. Enter it with your password to finish creating the account.",
     });
   }
 
@@ -392,7 +403,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
       setIsVerifyingSignUp(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(verifyError, "The code was not accepted. Please request a new one."),
+        message: getErrorMessage(
+          verifyError,
+          "The code was not accepted. Please request a new one.",
+        ),
       });
       return;
     }
@@ -405,7 +419,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
       setIsVerifyingSignUp(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(updateError, "The account was verified, but the password could not be saved."),
+        message: getErrorMessage(
+          updateError,
+          "The account was verified, but the password could not be saved.",
+        ),
       });
       return;
     }
@@ -426,7 +443,9 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
     window.location.assign(buildRedirectUrl(redirectTo));
   }
 
-  async function handleResendConfirmation(options?: { suppressBusyState?: boolean }) {
+  async function handleResendConfirmation(options?: {
+    suppressBusyState?: boolean;
+  }) {
     const emailResult = validateEmailInput(email);
     if (emailResult.error) {
       setEmail(emailResult.value);
@@ -560,10 +579,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
           <Card className="[--card-spacing:--spacing(6)] shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
             <CardHeader>
-              <div className="inline-flex items-center gap-2 self-start rounded-full border border-border bg-muted/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {/* <div className="inline-flex items-center gap-2 self-start rounded-full border border-border bg-muted/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-[color:var(--destructive)]" />
                 Protected access
-              </div>
+              </div> */}
               <CardTitle>
                 {authMode === "signIn" ? "Welcome back" : "Join QuakeStrike PH"}
               </CardTitle>
@@ -638,11 +657,15 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
 
               <form
                 className="space-y-4"
-                onSubmit={authMode === "signIn"
-                  ? signInStep === "password" ? handlePasswordSubmit : handleEmailOtpSubmit
-                  : signUpStep === "email"
-                    ? handleSendSignUpOtp
-                    : handleVerifySignUpOtp}
+                onSubmit={
+                  authMode === "signIn"
+                    ? signInStep === "password"
+                      ? handlePasswordSubmit
+                      : handleEmailOtpSubmit
+                    : signUpStep === "email"
+                      ? handleSendSignUpOtp
+                      : handleVerifySignUpOtp
+                }
               >
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -653,16 +676,24 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     autoComplete="email"
                     placeholder="name@example.com"
                     value={email}
-                    onChange={(event) => setEmail(sanitizeEmailInput(event.target.value))}
-                    readOnly={(authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp")}
+                    onChange={(event) =>
+                      setEmail(sanitizeEmailInput(event.target.value))
+                    }
+                    readOnly={
+                      (authMode === "signUp" && signUpStep === "verify") ||
+                      (authMode === "signIn" && signInStep === "otp")
+                    }
                     className={cn(
-                      ((authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp")) && "bg-muted/40"
+                      ((authMode === "signUp" && signUpStep === "verify") ||
+                        (authMode === "signIn" && signInStep === "otp")) &&
+                        "bg-muted/40",
                     )}
                     required
                   />
                 </div>
 
-                {(authMode === "signUp" && signUpStep === "verify") || (authMode === "signIn" && signInStep === "otp") ? (
+                {(authMode === "signUp" && signUpStep === "verify") ||
+                (authMode === "signIn" && signInStep === "otp") ? (
                   <div className="space-y-2">
                     <Label htmlFor="email-otp">One-time code</Label>
                     <Input
@@ -672,13 +703,16 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                       autoComplete="one-time-code"
                       placeholder="Enter the code from your email"
                       value={otp}
-                      onChange={(event) => setOtp(sanitizeOtpInput(event.target.value))}
+                      onChange={(event) =>
+                        setOtp(sanitizeOtpInput(event.target.value))
+                      }
                       required
                     />
                   </div>
                 ) : null}
 
-                {(authMode === "signIn" && signInStep === "password") || (authMode === "signUp" && signUpStep === "verify") ? (
+                {(authMode === "signIn" && signInStep === "password") ||
+                (authMode === "signUp" && signUpStep === "verify") ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <Label htmlFor="password">Password</Label>
@@ -701,10 +735,20 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                       id="password"
                       name="password"
                       type="password"
-                      autoComplete={authMode === "signIn" ? "current-password" : "new-password"}
-                      placeholder={authMode === "signIn" ? "Enter your password" : "Create a password"}
+                      autoComplete={
+                        authMode === "signIn"
+                          ? "current-password"
+                          : "new-password"
+                      }
+                      placeholder={
+                        authMode === "signIn"
+                          ? "Enter your password"
+                          : "Create a password"
+                      }
                       value={password}
-                      onChange={(event) => setPassword(sanitizePasswordInput(event.target.value))}
+                      onChange={(event) =>
+                        setPassword(sanitizePasswordInput(event.target.value))
+                      }
                       required
                     />
                   </div>
@@ -720,7 +764,9 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                       isSigningIn || isSendingLink ? (
                         <>
                           <LoaderCircle className="size-4 animate-spin" />
-                          {signInStep === "password" ? "Signing in" : "Verifying code"}
+                          {signInStep === "password"
+                            ? "Signing in"
+                            : "Verifying code"}
                         </>
                       ) : signInStep === "otp" ? (
                         <>
@@ -845,9 +891,10 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                   type="button"
                   variant="link"
                   className="h-auto p-0 text-sm font-medium text-foreground"
-                disabled={isBusy}
-                onClick={() => {
-                    const nextMode = authMode === "signIn" ? "signUp" : "signIn";
+                  disabled={isBusy}
+                  onClick={() => {
+                    const nextMode =
+                      authMode === "signIn" ? "signUp" : "signIn";
                     setAuthMode(nextMode);
                     setSignInStep("password");
                     setSignUpStep("email");
@@ -856,7 +903,9 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                     setStatus({ kind: "idle" });
                   }}
                 >
-                  {authMode === "signIn" ? "Create an account" : "Sign in instead"}
+                  {authMode === "signIn"
+                    ? "Create an account"
+                    : "Sign in instead"}
                 </Button>
               </div>
 
@@ -872,7 +921,9 @@ export function LoginPage({ redirectTo = "/dashboard" }: LoginPageProps) {
                       className="rounded-xl border border-border bg-muted/30 p-4"
                     >
                       <Icon className="size-5 text-muted-foreground" />
-                      <h2 className="mt-3 text-sm font-semibold">{feature.title}</h2>
+                      <h2 className="mt-3 text-sm font-semibold">
+                        {feature.title}
+                      </h2>
                       <p className="mt-1 text-sm leading-6 text-muted-foreground">
                         {feature.description}
                       </p>

@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-control-regex -- Control characters are intentionally stripped at this input boundary.
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g
 const SPACING_CHARACTERS = /\s+/g
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -41,6 +42,7 @@ export function validateEmailInput(value: string) {
 }
 
 export function sanitizePasswordInput(value: string) {
+  // eslint-disable-next-line no-control-regex -- Null bytes are intentionally stripped before authentication.
   return limitLength(value.replace(/\u0000/g, ""), 128)
 }
 

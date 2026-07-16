@@ -14,7 +14,6 @@ import {
   type ForecastPlaybackPage,
   type ForecastPlaybackScope,
 } from "@/data/earthquakes";
-import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast";
 import {
   FORECAST_WINDOW_MS,
   formatElapsedTime,
@@ -139,8 +138,6 @@ export function ForecastPlayback({
   const sliderMaximum = Math.max(0, horizon - startedAt);
   const sliderValue = Math.max(0, currentTime - startedAt);
   const beyondForecast = currentTime > forecastEndsAt;
-  const likelyBand = getMostLikelyDistanceBand(forecast);
-
   function changeScope(nextScope: ForecastPlaybackScope) {
     if (nextScope === scope || scopeLoading) return;
     const previousScope = scope;

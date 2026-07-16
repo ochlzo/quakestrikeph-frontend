@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle, ShieldAlert } from "lucide-react";
 
 import { supabase } from "@/db/supabase";
 import { ensurePubUserRow } from "@/lib/pubuser";
 
-export function AdminGate({ children }: { children: React.ReactNode }) {
+export function AdminGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<"loading" | "allowed" | "denied">("loading");
 
   useEffect(() => {
