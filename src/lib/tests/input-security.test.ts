@@ -13,7 +13,7 @@ import {
   validateEmailInput,
   validateMobileNumberInput,
   validatePasswordInput,
-} from "./input-security.ts"
+} from "../input-security.ts"
 
 describe("input security helpers", () => {
   it("normalizes and validates emails", () => {

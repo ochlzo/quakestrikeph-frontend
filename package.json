@@ -8,9 +8,10 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "test:filters": "node --experimental-strip-types --test src/lib/earthquake-map-filters.test.ts",
-    "test:forecast": "node --experimental-strip-types --test src/lib/earthquake-forecast.test.ts src/lib/forecast-playback.test.ts",
-    "test:map": "node --experimental-strip-types --test src/lib/map-basemap.test.ts",
+    "test:filters": "node --experimental-strip-types --test src/lib/tests/earthquake-map-filters.test.ts",
+    "test:forecast": "node --experimental-strip-types --test src/lib/tests/earthquake-forecast.test.ts src/lib/tests/forecast-playback.test.ts",
+    "test:map": "node --experimental-strip-types --test src/lib/tests/map-basemap.test.ts",
+    "test:security": "node --experimental-strip-types --test src/lib/tests/input-security.test.ts",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",

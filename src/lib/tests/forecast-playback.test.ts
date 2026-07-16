@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { ForecastPlaybackEvent } from "../data/earthquakes.ts"
+import type { ForecastPlaybackEvent } from "../../data/earthquakes.ts"
 import {
   FORECAST_WINDOW_MS,
   advancePlaybackTime,
@@ -12,7 +12,7 @@ import {
   probabilityDiscussion,
   scrubPlaybackTime,
   tickPlaybackTime,
-} from "./forecast-playback.ts"
+} from "../forecast-playback.ts"
 
 test("advances one forecast hour per real second and stops at the watermark", () => {
   const start = Date.parse("2026-07-15T00:00:00Z")

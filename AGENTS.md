@@ -5,6 +5,7 @@
 - Astro 7 static site, React 19 islands, Tailwind 4, Leaflet, and `@supabase/supabase-js`.
 - Use `pnpm run build` before handoff. For local development: `astro dev --background`; manage it with `astro dev status|logs|stop`.
 - Run `pnpm run test:filters` when changing filter parsing or query behavior.
+- Keep all `src/lib` test files in `src/lib/tests`.
 - Keep changes small. Follow nearby Astro/React/Tailwind patterns and reuse `src/styles/global.css` tokens before adding local styling.
 
 ## Map

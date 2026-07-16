@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { EarthquakeForecast } from "../data/earthquakes.ts"
-import { getMostLikelyDistance, getMostLikelyDistanceBand } from "./earthquake-forecast.ts"
+import type { EarthquakeForecast } from "../../data/earthquakes.ts"
+import { getMostLikelyDistance, getMostLikelyDistanceBand } from "../earthquake-forecast.ts"
 
 const forecast = {
   within10Km: 0.18,

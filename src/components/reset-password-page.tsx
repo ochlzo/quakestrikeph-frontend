@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, LoaderCircle, LockKeyhole, MapPinned } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+  LockKeyhole,
+  MapPinned,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -45,17 +51,19 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
-    const message = String((error as { message?: unknown }).message ?? "").trim()
+    const message = String(
+      (error as { message?: unknown }).message ?? "",
+    ).trim();
     if (message && message !== "{}") {
-      return message
+      return message;
     }
   }
 
   if (typeof error === "string" && error.trim() && error !== "{}") {
-    return error
+    return error;
   }
 
-  return fallback
+  return fallback;
 }
 
 function formatCountdown(seconds: number) {
@@ -73,7 +81,9 @@ export function ResetPasswordPage() {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
-  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(
+    null,
+  );
   const [now, setNow] = useState(() => Date.now());
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const timerRef = useRef<number | null>(null);
@@ -90,8 +100,12 @@ export function ResetPasswordPage() {
     };
   }, []);
 
-  const otpRemainingSeconds = otpExpiresAt ? Math.ceil((otpExpiresAt - now) / 1000) : 0;
-  const resendRemainingSeconds = resendAvailableAt ? Math.ceil((resendAvailableAt - now) / 1000) : 0;
+  const otpRemainingSeconds = otpExpiresAt
+    ? Math.ceil((otpExpiresAt - now) / 1000)
+    : 0;
+  const resendRemainingSeconds = resendAvailableAt
+    ? Math.ceil((resendAvailableAt - now) / 1000)
+    : 0;
   const isOtpExpired = otpExpiresAt !== null && otpRemainingSeconds <= 0;
   const canResend = resendAvailableAt === null || resendRemainingSeconds <= 0;
 
@@ -165,7 +179,8 @@ export function ResetPasswordPage() {
     if (isOtpExpired) {
       setStatus({
         kind: "error",
-        message: "That one-time code has expired. Request a new code and try again.",
+        message:
+          "That one-time code has expired. Request a new code and try again.",
       });
       return;
     }
@@ -190,7 +205,10 @@ export function ResetPasswordPage() {
       setIsResettingPassword(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(verifyError, "The code was not accepted. Please request a new one."),
+        message: getErrorMessage(
+          verifyError,
+          "The code was not accepted. Please request a new one.",
+        ),
       });
       return;
     }
@@ -204,7 +222,10 @@ export function ResetPasswordPage() {
     if (updateError) {
       setStatus({
         kind: "error",
-        message: getErrorMessage(updateError, "Unable to update the password right now."),
+        message: getErrorMessage(
+          updateError,
+          "Unable to update the password right now.",
+        ),
       });
       return;
     }
@@ -215,7 +236,8 @@ export function ResetPasswordPage() {
     if (!authUser) {
       setStatus({
         kind: "error",
-        message: "Password updated, but the signed-in account could not be confirmed for logging.",
+        message:
+          "Password updated, but the signed-in account could not be confirmed for logging.",
       });
       return;
     }
@@ -228,7 +250,9 @@ export function ResetPasswordPage() {
       reset_type: "email_otp",
     };
 
-    const { error: logError } = await supabase.from("PasswordResetLog").insert(resetLog);
+    const { error: logError } = await supabase
+      .from("PasswordResetLog")
+      .insert(resetLog);
 
     if (logError) {
       setStatus({
@@ -243,7 +267,8 @@ export function ResetPasswordPage() {
 
     setStatus({
       kind: "success",
-      message: "Password updated. We logged the reset and will redirect you to the dashboard.",
+      message:
+        "Password updated. We logged the reset and will redirect you to the dashboard.",
     });
 
     window.location.assign("/");
@@ -260,24 +285,18 @@ export function ResetPasswordPage() {
               <MapPinned className="size-5 text-[color:var(--destructive)]" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                QuakeStrike PH
-              </p>
               <h1 className="text-xl font-semibold tracking-[-0.03em]">
-                Change password
+                QuakeStrike PH
               </h1>
             </div>
           </div>
 
           <Card className="[--card-spacing:--spacing(6)] shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
             <CardHeader>
-              <div className="inline-flex items-center gap-2 self-start rounded-full border border-border bg-muted/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-[color:var(--destructive)]" />
-                Password recovery
-              </div>
               <CardTitle>Reset your password</CardTitle>
               <CardDescription>
-                Enter the same email used on your account. We&apos;ll send a one-time code, then you can set a new password.
+                Enter the same email used on your account. We&apos;ll send a
+                one-time code, then you can set a new password.
               </CardDescription>
             </CardHeader>
 
@@ -308,7 +327,9 @@ export function ResetPasswordPage() {
                       autoComplete="email"
                       placeholder="name@example.com"
                       value={email}
-                      onChange={(event) => setEmail(sanitizeEmailInput(event.target.value))}
+                      onChange={(event) =>
+                        setEmail(sanitizeEmailInput(event.target.value))
+                      }
                       required
                     />
                   </div>
@@ -325,7 +346,8 @@ export function ResetPasswordPage() {
                       </>
                     ) : !canResend ? (
                       <>
-                        Resend available in {formatCountdown(resendRemainingSeconds)}
+                        Resend available in{" "}
+                        {formatCountdown(resendRemainingSeconds)}
                         <ArrowRight className="size-4" />
                       </>
                     ) : (
@@ -347,7 +369,9 @@ export function ResetPasswordPage() {
                       autoComplete="one-time-code"
                       placeholder="Enter the code from your email"
                       value={otp}
-                      onChange={(event) => setOtp(sanitizeOtpInput(event.target.value))}
+                      onChange={(event) =>
+                        setOtp(sanitizeOtpInput(event.target.value))
+                      }
                       aria-describedby="otp-timer"
                       required
                     />
@@ -367,7 +391,11 @@ export function ResetPasswordPage() {
                       autoComplete="new-password"
                       placeholder="Enter a new password"
                       value={newPassword}
-                      onChange={(event) => setNewPassword(sanitizePasswordInput(event.target.value))}
+                      onChange={(event) =>
+                        setNewPassword(
+                          sanitizePasswordInput(event.target.value),
+                        )
+                      }
                       required
                     />
                   </div>
@@ -397,10 +425,10 @@ export function ResetPasswordPage() {
                       className="h-11 flex-1 rounded-xl"
                       disabled={isSendingCode || isResettingPassword}
                       onClick={() => {
-                        setStep("request")
-                        setStatus({ kind: "idle" })
-                        setOtp("")
-                        setNewPassword("")
+                        setStep("request");
+                        setStatus({ kind: "idle" });
+                        setOtp("");
+                        setNewPassword("");
                       }}
                     >
                       Change email
@@ -411,12 +439,16 @@ export function ResetPasswordPage() {
                     type="button"
                     variant="link"
                     className="h-auto p-0 text-sm font-medium text-muted-foreground"
-                    disabled={isSendingCode || isResettingPassword || !canResend}
+                    disabled={
+                      isSendingCode || isResettingPassword || !canResend
+                    }
                     onClick={() => {
-                      void sendCode()
+                      void sendCode();
                     }}
                   >
-                    {canResend ? "Resend code" : `Resend available in ${formatCountdown(resendRemainingSeconds)}`}
+                    {canResend
+                      ? "Resend code"
+                      : `Resend available in ${formatCountdown(resendRemainingSeconds)}`}
                   </Button>
                 </form>
               )}
@@ -426,14 +458,16 @@ export function ResetPasswordPage() {
               <div className="space-y-2 text-sm leading-6 text-muted-foreground">
                 <p className="font-medium text-foreground">Need help?</p>
                 <p>
-                  If the code expires, request a fresh one from this page. After you reset your password, the change is logged for the admin dashboard and you&apos;ll be sent back to the dashboard.
+                  If the code expires, request a fresh one from this page. After
+                  you reset your password, the change is logged for the admin
+                  dashboard and you&apos;ll be sent back to the dashboard.
                 </p>
                 <a
                   href="/login"
                   className="inline-flex items-center gap-1 font-medium text-foreground transition-colors hover:text-[color:var(--destructive)]"
                 >
+                  <ArrowLeft className="size-3.5" />
                   Back to login
-                  <ArrowRight className="size-3.5" />
                 </a>
               </div>
             </CardFooter>
@@ -441,5 +475,5 @@ export function ResetPasswordPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
