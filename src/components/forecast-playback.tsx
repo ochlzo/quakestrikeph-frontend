@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
+import * as React from "react";
+import { PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react";
 
-import { ForecastPlaybackMap } from "@/components/forecast-playback-map"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
+import { ForecastPlaybackMap } from "@/components/forecast-playback-map";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   getForecastPlaybackPage,
   type EarthquakeEventDetail,
@@ -13,33 +13,34 @@ import {
   type ForecastPlaybackEvent,
   type ForecastPlaybackPage,
   type ForecastPlaybackScope,
-} from "@/data/earthquakes"
-import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast"
+} from "@/data/earthquakes";
+import { getMostLikelyDistanceBand } from "@/lib/earthquake-forecast";
 import {
   FORECAST_WINDOW_MS,
   formatElapsedTime,
   getPlaybackHorizon,
   scrubPlaybackTime,
   tickPlaybackTime,
-} from "@/lib/forecast-playback"
+} from "@/lib/forecast-playback";
 
-const PLAYBACK_SPEEDS = [1, 2, 4] as const
-const PLAYBACK_SCOPES: Array<{ value: ForecastPlaybackScope; label: string }> = [
-  { value: "gk", label: "GK radius" },
-  { value: "100km", label: "Only within 100 km" },
-  { value: "all", label: "All (no filter)" },
-]
+const PLAYBACK_SPEEDS = [1, 2, 4] as const;
+const PLAYBACK_SCOPES: Array<{ value: ForecastPlaybackScope; label: string }> =
+  [
+    { value: "gk", label: "GK radius" },
+    { value: "100km", label: "Only within 100 km" },
+    { value: "all", label: "All (no filter)" },
+  ];
 
 function mergeEvents(
   current: ForecastPlaybackEvent[],
-  incoming: ForecastPlaybackEvent[]
+  incoming: ForecastPlaybackEvent[],
 ) {
-  const byId = new Map(current.map((event) => [event.id, event]))
-  for (const event of incoming) byId.set(event.id, event)
+  const byId = new Map(current.map((event) => [event.id, event]));
+  for (const event of incoming) byId.set(event.id, event);
   return [...byId.values()].sort((a, b) => {
-    const timeDifference = Date.parse(a.eventTime) - Date.parse(b.eventTime)
-    return timeDifference || a.id.localeCompare(b.id)
-  })
+    const timeDifference = Date.parse(a.eventTime) - Date.parse(b.eventTime);
+    return timeDifference || a.id.localeCompare(b.id);
+  });
 }
 
 export function ForecastPlayback({
@@ -49,118 +50,121 @@ export function ForecastPlayback({
   initialPage,
   onPlaybackChange,
 }: {
-  eventId: string
-  trigger: EarthquakeEventDetail
-  forecast: EarthquakeForecast
-  initialPage: ForecastPlaybackPage
+  eventId: string;
+  trigger: EarthquakeEventDetail;
+  forecast: EarthquakeForecast;
+  initialPage: ForecastPlaybackPage;
   onPlaybackChange: (
     events: ForecastPlaybackEvent[],
-    page: ForecastPlaybackPage
-  ) => void
+    page: ForecastPlaybackPage,
+  ) => void;
 }) {
-  const [events, setEvents] = React.useState(initialPage.events)
-  const [page, setPage] = React.useState(initialPage)
+  const [events, setEvents] = React.useState(initialPage.events);
+  const [page, setPage] = React.useState(initialPage);
   const [currentTime, setCurrentTime] = React.useState(() =>
-    Date.parse(initialPage.forecastStartedAt)
-  )
-  const [playing, setPlaying] = React.useState(false)
-  const [speed, setSpeed] = React.useState<(typeof PLAYBACK_SPEEDS)[number]>(1)
-  const [showAllRings, setShowAllRings] = React.useState(false)
-  const [scope, setScope] = React.useState<ForecastPlaybackScope>(initialPage.playbackScope)
-  const [scopeLoading, setScopeLoading] = React.useState(false)
-  const [scopeError, setScopeError] = React.useState(false)
-  const [bufferError, setBufferError] = React.useState(false)
-  const fetchingCursorRef = React.useRef<string | null>(null)
-  const scopeRef = React.useRef(initialPage.playbackScope)
+    Date.parse(initialPage.forecastStartedAt),
+  );
+  const [playing, setPlaying] = React.useState(false);
+  const [speed, setSpeed] = React.useState<(typeof PLAYBACK_SPEEDS)[number]>(1);
+  const [showAllRings, setShowAllRings] = React.useState(false);
+  const [scope, setScope] = React.useState<ForecastPlaybackScope>(
+    initialPage.playbackScope,
+  );
+  const [scopeLoading, setScopeLoading] = React.useState(false);
+  const [scopeError, setScopeError] = React.useState(false);
+  const [bufferError, setBufferError] = React.useState(false);
+  const fetchingCursorRef = React.useRef<string | null>(null);
+  const scopeRef = React.useRef(initialPage.playbackScope);
 
-  const startedAt = Date.parse(page.forecastStartedAt)
+  const startedAt = Date.parse(page.forecastStartedAt);
   const observedThrough = page.observedThrough
     ? Date.parse(page.observedThrough)
-    : null
-  const forecastEndsAt = Date.parse(page.forecastWindowEndsAt)
-  const caughtUp = observedThrough !== null && currentTime >= observedThrough
+    : null;
+  const forecastEndsAt = Date.parse(page.forecastWindowEndsAt);
+  const caughtUp = observedThrough !== null && currentTime >= observedThrough;
 
   React.useEffect(() => {
-    onPlaybackChange(events, page)
-  }, [events, onPlaybackChange, page])
+    onPlaybackChange(events, page);
+  }, [events, onPlaybackChange, page]);
 
   React.useEffect(() => {
-    if (!playing || observedThrough === null || caughtUp) return
-    let previous = performance.now()
+    if (!playing || observedThrough === null || caughtUp) return;
+    let previous = performance.now();
     const timer = window.setInterval(() => {
-      const now = performance.now()
-      const elapsed = now - previous
-      previous = now
+      const now = performance.now();
+      const elapsed = now - previous;
+      previous = now;
       setCurrentTime((value) =>
-        tickPlaybackTime(value, elapsed, speed, observedThrough, true)
-      )
-    }, 100)
-    return () => window.clearInterval(timer)
-  }, [caughtUp, observedThrough, playing, speed])
+        tickPlaybackTime(value, elapsed, speed, observedThrough, true),
+      );
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [caughtUp, observedThrough, playing, speed]);
 
   React.useEffect(() => {
-    if (caughtUp && playing) setPlaying(false)
-  }, [caughtUp, playing])
+    if (caughtUp && playing) setPlaying(false);
+  }, [caughtUp, playing]);
 
   React.useEffect(() => {
-    if (bufferError || !page.hasMore || !page.nextCursor) return
+    if (bufferError || !page.hasMore || !page.nextCursor) return;
     const unrevealed = events.filter(
-      (event) => Date.parse(event.eventTime) > currentTime
-    ).length
-    const lastEventTime = events.at(-1)?.eventTime
+      (event) => Date.parse(event.eventTime) > currentTime,
+    ).length;
+    const lastEventTime = events.at(-1)?.eventTime;
     const needsForecastWindow =
-      !lastEventTime || Date.parse(lastEventTime) <= forecastEndsAt
-    if (!needsForecastWindow && unrevealed >= 20) return
+      !lastEventTime || Date.parse(lastEventTime) <= forecastEndsAt;
+    if (!needsForecastWindow && unrevealed >= 20) return;
 
-    const cursorKey = `${page.nextCursor.eventTime}:${page.nextCursor.eventId}`
-    if (fetchingCursorRef.current === cursorKey) return
-    fetchingCursorRef.current = cursorKey
-    const requestedScope = page.playbackScope
+    const cursorKey = `${page.nextCursor.eventTime}:${page.nextCursor.eventId}`;
+    if (fetchingCursorRef.current === cursorKey) return;
+    fetchingCursorRef.current = cursorKey;
+    const requestedScope = page.playbackScope;
     void getForecastPlaybackPage(eventId, page.nextCursor, 100, requestedScope)
       .then((nextPage) => {
-        if (!nextPage || scopeRef.current !== requestedScope) return
-        setBufferError(false)
-        setEvents((current) => mergeEvents(current, nextPage.events))
-        setPage(nextPage)
+        if (!nextPage || scopeRef.current !== requestedScope) return;
+        setBufferError(false);
+        setEvents((current) => mergeEvents(current, nextPage.events));
+        setPage(nextPage);
       })
       .catch(() => setBufferError(true))
       .finally(() => {
-        fetchingCursorRef.current = null
-      })
-  }, [bufferError, currentTime, eventId, events, forecastEndsAt, page])
+        fetchingCursorRef.current = null;
+      });
+  }, [bufferError, currentTime, eventId, events, forecastEndsAt, page]);
 
-  const horizon = observedThrough === null
-    ? startedAt + FORECAST_WINDOW_MS
-    : getPlaybackHorizon(startedAt, currentTime, observedThrough)
-  const sliderMaximum = Math.max(0, horizon - startedAt)
-  const sliderValue = Math.max(0, currentTime - startedAt)
-  const beyondForecast = currentTime > forecastEndsAt
-  const likelyBand = getMostLikelyDistanceBand(forecast)
+  const horizon =
+    observedThrough === null
+      ? startedAt + FORECAST_WINDOW_MS
+      : getPlaybackHorizon(startedAt, currentTime, observedThrough);
+  const sliderMaximum = Math.max(0, horizon - startedAt);
+  const sliderValue = Math.max(0, currentTime - startedAt);
+  const beyondForecast = currentTime > forecastEndsAt;
+  const likelyBand = getMostLikelyDistanceBand(forecast);
 
   function changeScope(nextScope: ForecastPlaybackScope) {
-    if (nextScope === scope || scopeLoading) return
-    const previousScope = scope
-    scopeRef.current = nextScope
-    setScope(nextScope)
-    setPlaying(false)
-    setScopeLoading(true)
-    setScopeError(false)
+    if (nextScope === scope || scopeLoading) return;
+    const previousScope = scope;
+    scopeRef.current = nextScope;
+    setScope(nextScope);
+    setPlaying(false);
+    setScopeLoading(true);
+    setScopeError(false);
     void getForecastPlaybackPage(eventId, null, 100, nextScope)
       .then((nextPage) => {
-        if (!nextPage) throw new Error("Playback data is unavailable")
-        if (scopeRef.current !== nextScope) return
-        setEvents(nextPage.events)
-        setPage(nextPage)
-        setBufferError(false)
-        fetchingCursorRef.current = null
+        if (!nextPage) throw new Error("Playback data is unavailable");
+        if (scopeRef.current !== nextScope) return;
+        setEvents(nextPage.events);
+        setPage(nextPage);
+        setBufferError(false);
+        fetchingCursorRef.current = null;
       })
       .catch(() => {
-        if (scopeRef.current !== nextScope) return
-        scopeRef.current = previousScope
-        setScope(previousScope)
-        setScopeError(true)
+        if (scopeRef.current !== nextScope) return;
+        scopeRef.current = previousScope;
+        setScope(previousScope);
+        setScopeError(true);
       })
-      .finally(() => setScopeLoading(false))
+      .finally(() => setScopeLoading(false));
   }
 
   return (
@@ -186,7 +190,13 @@ export function ForecastPlayback({
                   : "24-hour forecast window"}
             </p>
             <p className="text-xs text-muted-foreground">
-              T+{formatElapsedTime(sliderValue)} · {events.filter((event) => Date.parse(event.eventTime) <= currentTime).length} shown
+              T+{formatElapsedTime(sliderValue)} ·{" "}
+              {
+                events.filter(
+                  (event) => Date.parse(event.eventTime) <= currentTime,
+                ).length
+              }{" "}
+              shown
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -196,8 +206,14 @@ export function ForecastPlayback({
               size="icon"
               aria-label="Restart playback"
               onClick={() => {
-                setPlaying(false)
-                setCurrentTime(scrubPlaybackTime(startedAt, startedAt, observedThrough ?? startedAt))
+                setPlaying(false);
+                setCurrentTime(
+                  scrubPlaybackTime(
+                    startedAt,
+                    startedAt,
+                    observedThrough ?? startedAt,
+                  ),
+                );
               }}
             >
               <RotateCcwIcon />
@@ -225,12 +241,14 @@ export function ForecastPlayback({
             disabled={sliderMaximum === 0}
             className="w-full accent-primary"
             onChange={(event) => {
-              setPlaying(false)
-              setCurrentTime(scrubPlaybackTime(
-                startedAt + Number(event.currentTarget.value),
-                startedAt,
-                observedThrough ?? startedAt
-              ))
+              setPlaying(false);
+              setCurrentTime(
+                scrubPlaybackTime(
+                  startedAt + Number(event.currentTarget.value),
+                  startedAt,
+                  observedThrough ?? startedAt,
+                ),
+              );
             }}
           />
           <span className="flex justify-between text-muted-foreground">
@@ -264,11 +282,19 @@ export function ForecastPlayback({
           </label>
         </div>
 
-        <fieldset className="space-y-2 rounded-lg border bg-muted/40 p-3" disabled={scopeLoading}>
-          <legend className="px-1 text-sm font-semibold">Show only which earthquakes?</legend>
+        <fieldset
+          className="space-y-2 rounded-lg border bg-muted/40 p-3"
+          disabled={scopeLoading}
+        >
+          <legend className="px-1 text-sm font-semibold">
+            Show only which earthquakes?
+          </legend>
           <div className="grid gap-2 sm:grid-cols-3">
             {PLAYBACK_SCOPES.map((option) => (
-              <label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm">
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2 text-sm"
+              >
                 <input
                   type="radio"
                   name="playback-scope"
@@ -292,17 +318,15 @@ export function ForecastPlayback({
           </p>
         </fieldset>
 
-        <p className="text-xs text-muted-foreground">
-          {showAllRings
-            ? "Rings mark 10 km, 25 km, and 50 km. The stronger line marks the model’s most-likely distance band."
-            : likelyBand?.key === "beyond50Km"
-              ? "Most likely beyond 50 km; the dashed line marks 50 km."
-              : `Showing the ${likelyBand?.label.toLowerCase() ?? "most-likely"} distance boundary.`}
-        </p>
         {bufferError ? (
           <div className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3 text-xs">
             <span>Later observations could not be buffered.</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => setBufferError(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setBufferError(false)}
+            >
               Retry
             </Button>
           </div>
@@ -310,12 +334,17 @@ export function ForecastPlayback({
         {scopeError ? (
           <div className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3 text-xs">
             <span>The playback filter could not be changed.</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => setScopeError(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setScopeError(false)}
+            >
               Dismiss
             </Button>
           </div>
         ) : null}
       </div>
     </section>
-  )
+  );
 }
