@@ -17,7 +17,7 @@ type PubUserRow = {
 };
 type AuditValues = Partial<Record<"Email" | "DisplayName" | "FName" | "Mname" | "LName" | "MobileNum", string | null>>;
 type PubUserAuditRow = {
-  audit_id: number;
+  aud_id: number;
   profile_email: string | null;
   action: "insert" | "update";
   changed_fields: string[] | null;
@@ -77,7 +77,7 @@ export function AdminUsersPanel() {
         .order("PUser_id", { ascending: false });
       const auditRequest = supabase
         .from("PubUserAuditLog")
-        .select("audit_id, profile_email, action, changed_fields, old_values, new_values, changed_by_email, changed_at")
+        .select("aud_id, profile_email, action, changed_fields, old_values, new_values, changed_by_email, changed_at")
         .order("changed_at", { ascending: false })
         .limit(50);
       const resetLogRequest = supabase
@@ -225,7 +225,7 @@ export function AdminUsersPanel() {
                 </thead>
                 <tbody>
                   {auditLogs.map((log) => (
-                    <tr key={log.audit_id} className="border-t border-border">
+                    <tr key={log.aud_id} className="border-t border-border">
                       <td className="px-4 py-4 align-top text-sm text-muted-foreground">
                         {auditDateFormatter.format(new Date(log.changed_at))}
                       </td>
@@ -238,7 +238,7 @@ export function AdminUsersPanel() {
                       <td className="px-4 py-4 align-top">
                         <div className="space-y-2">
                           {(log.changed_fields ?? []).map((field) => (
-                            <div key={`${log.audit_id}-${field}`} className="rounded-xl bg-muted/35 px-3 py-2">
+                            <div key={`${log.aud_id}-${field}`} className="rounded-xl bg-muted/35 px-3 py-2">
                               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                 {field}
                               </div>
