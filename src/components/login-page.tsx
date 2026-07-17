@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   LoaderCircle,
   Mail,
@@ -965,8 +966,8 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
                   href="/"
                   className="inline-flex items-center gap-1 font-medium text-foreground transition-colors hover:text-[color:var(--destructive)]"
                 >
+                  <ArrowLeft className="size-3.5" />
                   Return to the map
-                  <ArrowRight className="size-3.5" />
                 </a>
               </div>
             </CardFooter>
