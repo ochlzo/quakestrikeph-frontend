@@ -19,6 +19,10 @@ import {
   type Range,
   type RangeFilterKey,
 } from "@/lib/filter-validation"
+import {
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+} from "@/lib/input-security"
 import { magnitudeSelectionsToRanges } from "@/lib/magnitude-ranges"
 
 const initialFilters = { magnitude: false, depth: false, date: false }
@@ -61,14 +65,15 @@ export function useEarthquakeFilters(onApplied: () => void) {
   function setRangeValue(field: keyof Range, value: string) {
     setRanges((current) => ({
       ...current,
-      depth: { ...current.depth, [field]: value },
+      depth: { ...current.depth, [field]: sanitizeIntegerInput(value) },
     }))
   }
 
   function applyDatePreset(preset: DatePreset, days = 0) {
     const to = new Date()
     const from = new Date(to)
-    preset === "today" ? from.setHours(0, 0, 0, 0) : from.setDate(from.getDate() - days)
+    if (preset === "today") from.setHours(0, 0, 0, 0)
+    else from.setDate(from.getDate() - days)
     setFilters((current) => ({ ...current, date: true }))
     setDateRange({ from, to: preset === "today" ? endOfDay(to) : to })
     setSelectedDatePreset(preset)
@@ -82,7 +87,8 @@ export function useEarthquakeFilters(onApplied: () => void) {
   function toggleForecast(filter: ForecastFilterKey, option: string) {
     setSelectedForecasts((current) => {
       const selection = new Set(current[filter])
-      selection.has(option) ? selection.delete(option) : selection.add(option)
+      if (selection.has(option)) selection.delete(option)
+      else selection.add(option)
       return { ...current, [filter]: selection }
     })
   }
@@ -154,7 +160,9 @@ export function useEarthquakeFilters(onApplied: () => void) {
     resetFilters,
     applyFilters,
     setSelectedMagnitudes,
-    setMinimumEstimatedStrongestAftershock,
+    setMinimumEstimatedStrongestAftershock: (value: string) => {
+      setMinimumEstimatedStrongestAftershock(sanitizeDecimalInput(value))
+    },
     setIncludeNoForecast,
   }
 }

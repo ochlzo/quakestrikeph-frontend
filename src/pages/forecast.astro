@@ -1,0 +1,12 @@
+---
+import { ForecastDiscussionPage } from "../components/forecast-discussion-page"
+import Layout from "../layouts/Layout.astro"
+---
+
+<Layout>
+  <ForecastDiscussionPage client:only="react">
+    <p slot="fallback" class="p-8 text-center text-sm text-muted-foreground">
+      Loading forecast discussion…
+    </p>
+  </ForecastDiscussionPage>
+</Layout>

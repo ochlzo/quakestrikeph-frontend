@@ -1,5 +1,6 @@
 # build output
 dist/
+.vercel/
 
 # generated types
 .astro/
@@ -30,3 +31,11 @@ pnpm-debug.log*
 
 #migrations
 supabase/migrations/*
+!supabase/migrations/20260715090000_forecast_playback_page.sql
+!supabase/migrations/20260715180000_forecast_playback_scopes.sql
+!supabase/migrations/20260715221500_fix_pubuser_auth_profile_schema.sql
+!supabase/migrations/20260715224500_normalize_pubuser_inputs.sql
+!supabase/migrations/20260715230500_add_pubuser_display_name.sql
+!supabase/migrations/20260715232000_enforce_pubuser_mobile_number.sql
+!supabase/migrations/20260715234000_add_pubuser_audit_log.sql
+!supabase/migrations/20260715235500_enforce_unique_pubuser_mobile_number.sql

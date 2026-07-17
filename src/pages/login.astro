@@ -1,0 +1,10 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { LoginPage } from "../components/login-page";
+
+const redirectTo = Astro.url.searchParams.get("redirectTo") ?? "/";
+---
+
+<Layout>
+  <LoginPage client:load redirectTo={redirectTo} />
+</Layout>

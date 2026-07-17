@@ -37,6 +37,42 @@ export type EarthquakeMarker = {
   estimatedStrongestAftershock?: number | null
 }
 
+export type EarthquakeEventDetail = Omit<EarthquakeMarker, "hasForecast"> & {
+  eventTime: string | null
+}
+
+export type ForecastObservationStatus = "pending" | "current" | "complete" | "delayed"
+export type ForecastPlaybackScope = "gk" | "100km" | "all"
+
+export type ForecastPlaybackEvent = {
+  id: string
+  dateTime: string
+  eventTime: string
+  latitude: number
+  longitude: number
+  depth: number | string
+  magnitude: number
+  distanceKm: number
+  withinGardnerKnopoffRadius: boolean
+}
+
+export type ForecastPlaybackCursor = {
+  eventTime: string
+  eventId: string
+}
+
+export type ForecastPlaybackPage = {
+  status: ForecastObservationStatus
+  playbackScope: ForecastPlaybackScope
+  gardnerKnopoffRadiusKm: number
+  forecastStartedAt: string
+  forecastWindowEndsAt: string
+  observedThrough: string | null
+  events: ForecastPlaybackEvent[]
+  nextCursor: ForecastPlaybackCursor | null
+  hasMore: boolean
+}
+
 export type EarthquakeMarkerPage = {
   events: EarthquakeMarker[]
   nextOffset: number
@@ -60,6 +96,28 @@ type EarthquakeForecastRow = {
   m5_plus_msg: string | null
   distance_msg: string | null
   max_magnitude_msg: string | null
+}
+
+type ForecastPlaybackRpcResponse = {
+  status: ForecastObservationStatus
+  playback_scope: ForecastPlaybackScope
+  gk_radius_km: number
+  forecast_started_at: string
+  forecast_window_ends_at: string
+  observed_through: string | null
+  events: Array<{
+    id: string
+    date_time: string
+    event_time: string
+    latitude: number
+    longitude: number
+    depth: number | string
+    magnitude: number
+    distance_km: number
+    within_gk_radius: boolean
+  }>
+  next_cursor: { event_time: string; event_id: string } | null
+  has_more: boolean
 }
 
 export type EarthquakeForecast = {
@@ -148,6 +206,27 @@ export async function getRecentEarthquakeMarkerPage(
   return getEarthquakeMarkerPage(filters, offset, null)
 }
 
+export async function getEarthquakeEvent(eventId: string): Promise<EarthquakeEventDetail | null> {
+  const { data, error } = await supabase
+    .from("RawEarthquakeEvents")
+    .select('id, "Date-Time", "Latitude", "Longitude", "Depth", "Magnitude", "Location", event_time')
+    .eq("id", eventId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+
+  return {
+    id: data.id,
+    date: data["Date-Time"],
+    latitude: data.Latitude,
+    longitude: data.Longitude,
+    depth: data.Depth,
+    magnitude: data.Magnitude,
+    location: data.Location,
+    eventTime: data.event_time,
+  }
+}
+
 export async function getEarthquakeForecast(eventId: string): Promise<EarthquakeForecast | null> {
   const { data, error } = await supabase
     .from("SeisPredictions_v1")
@@ -179,5 +258,47 @@ export async function getEarthquakeForecast(eventId: string): Promise<Earthquake
     m5PlusMessage: forecast.m5_plus_msg,
     distanceMessage: forecast.distance_msg,
     maxMagnitudeMessage: forecast.max_magnitude_msg,
+  }
+}
+
+export async function getForecastPlaybackPage(
+  eventId: string,
+  cursor: ForecastPlaybackCursor | null = null,
+  limit = 100,
+  scope: ForecastPlaybackScope = "gk"
+): Promise<ForecastPlaybackPage | null> {
+  const { data, error } = await supabase.rpc("get_forecast_playback_page", {
+    trigger_event_id: eventId,
+    cursor_event_time: cursor?.eventTime ?? null,
+    cursor_event_id: cursor?.eventId ?? null,
+    result_limit: limit,
+    playback_scope: scope,
+  })
+  if (error) throw error
+  if (!data) return null
+
+  const result = data as ForecastPlaybackRpcResponse
+  return {
+    status: result.status,
+    playbackScope: result.playback_scope,
+    gardnerKnopoffRadiusKm: result.gk_radius_km,
+    forecastStartedAt: result.forecast_started_at,
+    forecastWindowEndsAt: result.forecast_window_ends_at,
+    observedThrough: result.observed_through,
+    events: result.events.map((event) => ({
+      id: event.id,
+      dateTime: event.date_time,
+      eventTime: event.event_time,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      depth: event.depth,
+      magnitude: event.magnitude,
+      distanceKm: event.distance_km,
+      withinGardnerKnopoffRadius: event.within_gk_radius,
+    })),
+    nextCursor: result.next_cursor
+      ? { eventTime: result.next_cursor.event_time, eventId: result.next_cursor.event_id }
+      : null,
+    hasMore: result.has_more,
   }
 }

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { validateDateRange } from "./filter-validation.ts"
+import { validateDateRange } from "../filter-validation.ts"
 import {
   magnitudeSelectionsToRanges,
   parseCustomMagnitudeRanges,
-} from "./magnitude-ranges.ts"
+} from "../magnitude-ranges.ts"
 import {
   countActiveMapFilters,
   createDefaultMapFilters,
@@ -13,7 +13,7 @@ import {
   hasActiveMapFilters,
   magnitudeMarkerBand,
   toEventTime,
-} from "./earthquake-map-filters.ts"
+} from "../earthquake-map-filters.ts"
 
 test("stops pagination at the map event limit", () => {
   assert.deepEqual(getPaginationState(0, 6, false), {

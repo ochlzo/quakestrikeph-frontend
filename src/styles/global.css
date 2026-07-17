@@ -88,6 +88,8 @@
   --magnitude-3: oklch(0.795 0.184 86.047);
   --magnitude-4: oklch(0.705 0.213 47.604);
   --magnitude-5-plus: var(--destructive);
+  --forecast-ring-likely: #6d5bd0;
+  --forecast-ring-context: #64748b;
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -167,4 +169,49 @@
 
 .earthquake-marker--magnitude-5-plus {
   fill: var(--magnitude-5-plus);
+}
+
+.earthquake-marker--trigger {
+  stroke: var(--foreground);
+  stroke-width: 3;
+}
+
+.earthquake-marker--post-forecast {
+  stroke: var(--muted-foreground);
+  stroke-dasharray: 3 2;
+  stroke-width: 2;
+}
+
+.forecast-distance-ring {
+  fill: none;
+  stroke: var(--forecast-ring-context);
+  stroke-dasharray: 4 6;
+  stroke-opacity: 0.55;
+  stroke-width: 1.5;
+}
+
+.forecast-distance-ring--likely {
+  stroke: var(--forecast-ring-likely);
+  stroke-dasharray: none;
+  stroke-opacity: 0.85;
+  stroke-width: 3;
+}
+
+.forecast-distance-ring--beyond {
+  stroke-dasharray: 8 6;
+}
+
+.forecast-distance-label {
+  border-color: var(--border);
+  background: var(--background);
+  box-shadow: none;
+  color: var(--forecast-ring-context);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+}
+
+.forecast-distance-label--likely {
+  border-color: var(--forecast-ring-likely);
+  color: var(--forecast-ring-likely);
 }

@@ -1,0 +1,43 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { ArrowLeft, MapPinned } from "lucide-react";
+import { FavoritesPanel } from "../components/favorites-panel";
+---
+
+<Layout>
+  <main class="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(248,113,113,0.16),_transparent_28%),linear-gradient(180deg,_var(--background),_color-mix(in_oklch,var(--background),var(--foreground)_2%))] text-foreground">
+    <div class="pointer-events-none absolute inset-0 opacity-55 [background-image:linear-gradient(to_right,rgba(148,163,184,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.1)_1px,transparent_1px)] [background-size:44px_44px]" />
+
+    <section class="relative mx-auto min-h-screen w-full max-w-6xl px-6 py-10 sm:px-10">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <div class="flex size-11 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+            </div>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                QuakeStrike PH
+              </p>
+              <h1 class="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+                Pinned Locations
+              </h1>
+            </div>
+          </div>
+          <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Search by place keyword, pick from the dropdown, or click directly on the map to pin an exact location.
+          </p>
+        </div>
+      </div>
+
+      <FavoritesPanel client:load />
+
+      <a
+        href="/"
+        class="mt-8 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-[color:var(--destructive)]"
+      >
+        <ArrowLeft className="size-4" />
+        Back to dashboard
+      </a>
+    </section>
+  </main>
+</Layout>
