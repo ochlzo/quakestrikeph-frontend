@@ -89,6 +89,7 @@ function ErrorReport({ error, onRetry }: { error: LoadError; onRetry: () => void
 }
 
 export function ForecastDiscussionPage() {
+  const isIframe = new URLSearchParams(window.location.search).get("iframe") === "true"
   const [retry, setRetry] = React.useState(0)
   const [data, setData] = React.useState<ReportData | null>(null)
   const [error, setError] = React.useState<LoadError | null>(null)
@@ -138,9 +139,11 @@ export function ForecastDiscussionPage() {
 
   return (
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <a href="/" className={buttonVariants({ variant: "ghost", size: "lg", className: "mb-6" })}>
-        <ArrowLeftIcon /> Back to map
-      </a>
+      {isIframe ? null : (
+        <a href="/" className={buttonVariants({ variant: "ghost", size: "lg", className: "mb-6" })}>
+          <ArrowLeftIcon /> Back to map
+        </a>
+      )}
 
       {playback.status === "delayed" ? (
         <div className="mb-6 rounded-lg border border-l-4 border-l-likelihood-medium bg-likelihood-medium/5 p-4 text-sm">
