@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { EarthquakeForecast } from "../../data/earthquakes.ts"
 import { getMostLikelyDistance, getMostLikelyDistanceBand } from "../earthquake-forecast.ts"
 
 const forecast = {
@@ -9,7 +8,7 @@ const forecast = {
   between10And25Km: 0.44,
   between25And50Km: 0.27,
   beyond50Km: 0.11,
-} as EarthquakeForecast
+}
 
 test("summarizes the highest-probability distance band", () => {
   assert.equal(getMostLikelyDistance(forecast), "10–25 km")
@@ -31,7 +30,7 @@ test("selects boundaries for every distance outcome", () => {
       between25And50Km: 0.1,
       beyond50Km: 0.1,
       [key]: 0.7,
-    } as EarthquakeForecast
+    }
     assert.deepEqual(getMostLikelyDistanceBand(probabilities)?.boundariesKm, boundaries)
   }
 })

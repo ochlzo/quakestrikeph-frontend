@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/db/supabase";
 import { sanitizePlainTextInput } from "@/lib/input-security";
+import { addMapBasemap } from "@/lib/map-basemap";
 import { getFavoriteLocationLabel, type FavoriteLocationRow } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
 
@@ -201,7 +202,7 @@ export function FavoritesPanel() {
           }>;
 
           const nextSuggestions = payload
-            .map((item) => {
+            .map<PlaceSuggestion | null>((item) => {
               const lat = Number(item.lat);
               const lon = Number(item.lon);
               if (!Number.isFinite(lat) || !Number.isFinite(lon) || !item.display_name) {
@@ -272,13 +273,7 @@ export function FavoritesPanel() {
 
       map.setView([12.8797, 121.774], 5.5);
 
-      leaflet
-        .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-        })
-        .addTo(map);
+      void addMapBasemap(leaflet, map);
 
       const pinIcon = leaflet.icon({
         iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",

@@ -19,7 +19,7 @@ import {
 import { sanitizeMagnitudeRangeInput } from "@/lib/input-security"
 
 const PRESET_VALUES = MAGNITUDE_RANGE_OPTIONS.map((option) => option.value)
-const OPTION_BY_VALUE = new Map(
+const OPTION_BY_VALUE = new Map<string, (typeof MAGNITUDE_RANGE_OPTIONS)[number]>(
   MAGNITUDE_RANGE_OPTIONS.map((option) => [option.value, option])
 )
 

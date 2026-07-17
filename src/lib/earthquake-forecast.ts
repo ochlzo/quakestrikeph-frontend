@@ -7,7 +7,12 @@ export const FORECAST_DISTANCE_BANDS = [
   { key: "beyond50Km", label: "Beyond 50 km", boundariesKm: [50] },
 ] as const
 
-export function getMostLikelyDistanceBand(forecast: EarthquakeForecast) {
+type DistanceForecast = Pick<
+  EarthquakeForecast,
+  (typeof FORECAST_DISTANCE_BANDS)[number]["key"]
+>
+
+export function getMostLikelyDistanceBand(forecast: DistanceForecast) {
   let mostLikely: (typeof FORECAST_DISTANCE_BANDS)[number] | null = null
   let highestProbability = -1
 
@@ -22,6 +27,6 @@ export function getMostLikelyDistanceBand(forecast: EarthquakeForecast) {
   return mostLikely
 }
 
-export function getMostLikelyDistance(forecast: EarthquakeForecast) {
+export function getMostLikelyDistance(forecast: DistanceForecast) {
   return getMostLikelyDistanceBand(forecast)?.label ?? "Unavailable"
 }

@@ -49,11 +49,11 @@ import {
 } from "@/lib/input-security";
 import { cn } from "@/lib/utils";
 import {
-  BookmarkIcon,
   LoaderCircle,
   LockKeyholeIcon,
   LogInIcon,
   LogOutIcon,
+  MapPin,
   PencilIcon,
   UserCircle2Icon,
 } from "lucide-react";
@@ -661,11 +661,11 @@ function AccountCenter() {
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               setIsOpen(false);
-              window.location.assign("/favorites");
+              window.location.assign("/pins");
             }}
           >
-            <BookmarkIcon className="size-4" />
-            Favorites
+            <MapPin className="size-4" />
+            Pinned Locations
           </button>
 
           {isAdmin ? (
