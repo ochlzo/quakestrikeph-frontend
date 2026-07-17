@@ -28,6 +28,16 @@ export type PubUserProfileInput = {
   MobileNum: string | null;
 };
 
+export type FavoriteLocationRow = {
+  favorite_id: number;
+  auth_user_id: string;
+  favorite_label: string;
+  favorite_kind: "location" | "city" | "map_pin";
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+};
+
 function normalizeEmail(email: string) {
   return sanitizeEmailInput(email);
 }
@@ -195,4 +205,8 @@ export async function updatePubUserProfile(
 
     throw error;
   }
+}
+
+export function getFavoriteLocationLabel(favorite: FavoriteLocationRow) {
+  return favorite.favorite_label.trim() || "Pinned location";
 }

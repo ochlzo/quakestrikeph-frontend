@@ -1,0 +1,1 @@
+alter table public."PubUserAuditLog" rename column audit_id to aud_id;
