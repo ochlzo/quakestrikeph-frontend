@@ -8,7 +8,13 @@ import {
   validateMobileNumberInput,
 } from "@/lib/input-security";
 
-export type PubUserProfile = {
+export type AlertPreferences = {
+  alerts_on: boolean;
+  phivolcs_only: boolean;
+  near_pins_only: boolean;
+};
+
+export type PubUserProfile = AlertPreferences & {
   PUser_id: number | null;
   auth_user_id: string | null;
   role: string | null;
@@ -115,7 +121,7 @@ async function getPubUserRowByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email);
   const { data, error } = await supabase
     .from("PubUser")
-    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
+    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
     .ilike("Email", normalizedEmail)
     .maybeSingle<PubUserProfile>();
 
@@ -150,7 +156,7 @@ export async function ensurePubUserRow(user: User) {
       ...nameParts,
       MobileNum: null,
     })
-    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum"')
+    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
     .maybeSingle<PubUserProfile>();
 
   if (error) {
@@ -162,6 +168,22 @@ export async function ensurePubUserRow(user: User) {
 
 export async function getPubUserProfile(email: string) {
   return getPubUserRowByEmail(email);
+}
+
+export async function updatePubUserAlertPreferences(preferences: AlertPreferences) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData.user) throw new Error("You must be signed in to save alert preferences.");
+
+  const { data, error } = await supabase
+    .from("PubUser")
+    .update(preferences)
+    .eq("auth_user_id", authData.user.id)
+    .select("alerts_on, phivolcs_only, near_pins_only")
+    .single<AlertPreferences>();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updatePubUserProfile(

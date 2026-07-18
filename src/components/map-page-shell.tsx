@@ -4,6 +4,7 @@ import * as React from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 
+import { AlertPreferencesDialog } from "@/components/alert-preferences-dialog";
 import { AppSidebar } from "@/components/app-sidebar";
 import { EarthquakeFilterSidebar } from "@/components/earthquake-filter-sidebar";
 import { EarthquakeForecastSidebar } from "@/components/earthquake-forecast-sidebar";
@@ -40,6 +41,7 @@ import {
   getPubUserDisplayName,
   getPubUserProfile,
   updatePubUserProfile,
+  type AlertPreferences,
   type PubUserProfile,
 } from "@/lib/pubuser";
 import {
@@ -49,6 +51,7 @@ import {
 } from "@/lib/input-security";
 import { cn } from "@/lib/utils";
 import {
+  BellRingIcon,
   LoaderCircle,
   LockKeyholeIcon,
   LogInIcon,
@@ -74,6 +77,12 @@ type ProfileRow = {
   Mname: string | null;
   LName: string | null;
   MobileNum: string | null;
+};
+
+const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
+  alerts_on: false,
+  phivolcs_only: false,
+  near_pins_only: false,
 };
 
 function dispatchRenderedEvents(events: EarthquakeMarker[], fitBounds = false) {
@@ -144,6 +153,8 @@ function AccountCenter() {
   const [isEditingProfile, setIsEditingProfile] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isAlertPreferencesOpen, setIsAlertPreferencesOpen] = React.useState(false);
+  const [alertPreferences, setAlertPreferences] = React.useState(DEFAULT_ALERT_PREFERENCES);
   const [status, setStatus] = React.useState<{
     kind: "idle" | "error" | "success";
     message: string;
@@ -170,6 +181,7 @@ function AccountCenter() {
             setLastName("");
             setDisplayNameInput("");
             setMobileNum("");
+            setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
             setIsEditingProfile(false);
           }
           return;
@@ -200,6 +212,11 @@ function AccountCenter() {
         setLastName(formValues.lastName);
         setDisplayNameInput(formValues.displayName);
         setMobileNum(formValues.mobileNum);
+        setAlertPreferences({
+          alerts_on: profileData?.alerts_on ?? false,
+          phivolcs_only: profileData?.phivolcs_only ?? false,
+          near_pins_only: profileData?.near_pins_only ?? false,
+        });
         setIsEditingProfile(false);
       } catch {
         if (active) {
@@ -210,6 +227,7 @@ function AccountCenter() {
           setLastName("");
           setDisplayNameInput("");
           setMobileNum("");
+          setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
           setIsEditingProfile(false);
         }
       } finally {
@@ -229,6 +247,7 @@ function AccountCenter() {
           setLastName("");
           setDisplayNameInput("");
           setMobileNum("");
+          setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
           setIsEditingProfile(false);
           setIsLoading(false);
           return;
@@ -668,6 +687,19 @@ function AccountCenter() {
             Pinned Locations
           </button>
 
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              setIsOpen(false);
+              setIsAlertPreferencesOpen(true);
+            }}
+          >
+            <BellRingIcon className="size-4" />
+            Alert preferences
+          </button>
+
           {isAdmin ? (
             <button
               type="button"
@@ -700,6 +732,12 @@ function AccountCenter() {
           </button>
         </div>
       ) : null}
+      <AlertPreferencesDialog
+        open={isAlertPreferencesOpen}
+        initialValue={alertPreferences}
+        onOpenChange={setIsAlertPreferencesOpen}
+        onSaved={setAlertPreferences}
+      />
     </div>
   );
 }

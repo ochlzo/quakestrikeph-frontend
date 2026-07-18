@@ -26,7 +26,10 @@ Context only — not a runnable migration. Live `public` schema for Supabase pro
   `attempt_count`, `error_message`, `started_at`, `finished_at`, `created_at`.
 - `PubUser` — `PUser_id` (PK), `auth_user_id` (unique), `role`
   (`user|admin`), `Email`, `DisplayName`, `FName`, `Mname`, `LName`,
-  `MobileNum`, plus legacy nullable columns `Password` and `Fave_id`.
+  `MobileNum`, `alerts_on`, `phivolcs_only`, `near_pins_only`, plus legacy
+  nullable columns `Password` and `Fave_id`. Alert preferences are non-null
+  booleans defaulting to `false`; dependent preferences must remain `false`
+  while `alerts_on` is `false`.
   `MobileNum`, when present, must match `09` followed by nine digits.
 - `PubUserAuditLog` — `aud_id` (PK), `profile_puser_id`,
   `profile_auth_user_id`, `profile_email`, `action` (`insert|update`),
