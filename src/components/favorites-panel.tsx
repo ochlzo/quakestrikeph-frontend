@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { LoaderCircle, MapPin, MapPinOff, Plus, SearchIcon, Trash2 } from "lucide-react";
+import { LoaderCircle, MapPin, MapPinned, Plus, SearchIcon, Trash2 } from "lucide-react";
 
+import { SavedPinMap, type SavedPinPoint } from "@/components/saved-pin-map";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createSavedPin, deleteSavedPin, getSavedPins, type SavedPinInsert } from "@/data/saved-pins";
 import { supabase } from "@/db/supabase";
 import { sanitizePlainTextInput } from "@/lib/input-security";
-import { addMapBasemap } from "@/lib/map-basemap";
 import { getFavoriteLocationLabel, type FavoriteLocationRow } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
 
@@ -16,16 +18,6 @@ type StatusState =
   | { kind: "idle" }
   | { kind: "error"; message: string }
   | { kind: "success"; message: string };
-
-type FavoriteInsert = {
-  auth_user_id: string;
-  favorite_label: string;
-  favorite_kind: "location" | "map_pin";
-  latitude: number | null;
-  longitude: number | null;
-};
-
-const FAVORITES_TABLE_CANDIDATES = ["SavedPins", "FavoriteLocations"] as const;
 
 type PlaceSuggestion = {
   displayName: string;
@@ -64,41 +56,7 @@ function isValidNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isMissingTableError(error: { message?: string } | null | undefined) {
-  const message = error?.message?.toLowerCase() ?? "";
-  return message.includes("could not find the table") || message.includes("schema cache");
-}
-
-async function queryFavoritesTable() {
-  const { data, error } = await supabase
-    .from("SavedPins")
-    .select("favorite_id, auth_user_id, favorite_label, favorite_kind, latitude, longitude, created_at")
-    .order("created_at", { ascending: false });
-
-  if (!error) {
-    return { data: (data ?? []) as FavoriteLocationRow[], error: null };
-  }
-
-  if (!isMissingTableError(error)) {
-    return { data: [] as FavoriteLocationRow[], error };
-  }
-
-  const fallback = await supabase
-    .from("FavoriteLocations")
-    .select("favorite_id, auth_user_id, favorite_label, favorite_kind, latitude, longitude, created_at")
-    .order("created_at", { ascending: false });
-
-  if (!fallback.error) {
-    return { data: (fallback.data ?? []) as FavoriteLocationRow[], error: null };
-  }
-
-  return { data: [] as FavoriteLocationRow[], error: fallback.error };
-}
-
 export function FavoritesPanel() {
-  const mapHostRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
-  const markerRef = useRef<import("leaflet").Marker | null>(null);
   const searchTimerRef = useRef<number | null>(null);
   const reverseTimerRef = useRef<number | null>(null);
 
@@ -111,8 +69,7 @@ export function FavoritesPanel() {
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const [saveKeyword, setSaveKeyword] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [mapHover, setMapHover] = useState<{ lat: number; lng: number } | null>(null);
-  const [pickedPoint, setPickedPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickedPoint, setPickedPoint] = useState<SavedPinPoint | null>(null);
   const [pickedPlaceName, setPickedPlaceName] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [activeSuggestion, setActiveSuggestion] = useState<PlaceSuggestion | null>(null);
@@ -134,7 +91,7 @@ export function FavoritesPanel() {
         return;
       }
 
-      const { data, error: queryError } = await queryFavoritesTable();
+      const { data, error: queryError } = await getSavedPins();
 
       if (!active) return;
 
@@ -156,13 +113,13 @@ export function FavoritesPanel() {
   }, []);
 
   useEffect(() => {
-    const trimmedSearch = searchKeyword.trim();
+    const trimmedSearch = saveKeyword.trim();
 
     if (searchTimerRef.current) {
       window.clearTimeout(searchTimerRef.current);
     }
 
-    if (trimmedSearch.length < 3) {
+    if (pickedPoint || trimmedSearch.length < 3) {
       setSuggestions([]);
       setIsSearchingPlaces(false);
       return;
@@ -243,93 +200,10 @@ export function FavoritesPanel() {
         window.clearTimeout(searchTimerRef.current);
       }
     };
-  }, [searchKeyword]);
+  }, [pickedPoint, saveKeyword]);
 
   useEffect(() => {
-    let cancelled = false;
-    let cleanup: (() => void) | null = null;
-
-    async function initializeMap() {
-      if (!mapHostRef.current || mapInstanceRef.current) {
-        return;
-      }
-
-      const leaflet = await import("leaflet");
-      if (cancelled || !mapHostRef.current || mapInstanceRef.current) {
-        return;
-      }
-
-      delete (leaflet.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-      leaflet.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
-
-      const map = leaflet.map(mapHostRef.current, {
-        zoomControl: true,
-        preferCanvas: true,
-      });
-
-      map.setView([12.8797, 121.774], 5.5);
-
-      void addMapBasemap(leaflet, map);
-
-      const pinIcon = leaflet.icon({
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41],
-      });
-
-      const placeMarker = leaflet.marker([12.8797, 121.774], {
-        draggable: true,
-        icon: pinIcon,
-      }).addTo(map);
-
-      markerRef.current = placeMarker;
-      mapInstanceRef.current = map;
-
-      const applyPoint = (lat: number, lng: number) => {
-        setPickedPoint({ lat, lng });
-        placeMarker.setLatLng([lat, lng]);
-      };
-
-      map.on("click", (event: import("leaflet").LeafletMouseEvent) => {
-        applyPoint(event.latlng.lat, event.latlng.lng);
-        setSaveKeyword((current) => current || "Selected map pin");
-      });
-
-      map.on("mousemove", (event: import("leaflet").LeafletMouseEvent) => {
-        setMapHover({ lat: event.latlng.lat, lng: event.latlng.lng });
-      });
-
-      placeMarker.on("dragend", () => {
-        const latLng = placeMarker.getLatLng();
-        applyPoint(latLng.lat, latLng.lng);
-      });
-
-      cleanup = () => {
-        map.off();
-        map.remove();
-        mapInstanceRef.current = null;
-        markerRef.current = null;
-      };
-    }
-
-    void initializeMap();
-
-    return () => {
-      cancelled = true;
-      cleanup?.();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mapInstanceRef.current || !pickedPoint) {
+    if (!pickedPoint) {
       return;
     }
 
@@ -382,7 +256,9 @@ export function FavoritesPanel() {
           }
         } catch (pointError) {
           if ((pointError as { name?: string } | null)?.name !== "AbortError") {
-            // Keep the coordinate pin even if reverse geocoding fails.
+            const fallbackLabel = `Pinned location ${formatCoordinate(pickedPoint.lat)}, ${formatCoordinate(pickedPoint.lng)}`;
+            setPickedPlaceName(fallbackLabel);
+            setSaveKeyword(fallbackLabel);
           }
         } finally {
           setIsResolvingPoint(false);
@@ -415,7 +291,7 @@ export function FavoritesPanel() {
   }, [favorites, normalizedSearch]);
 
   async function reloadFavorites() {
-    const { data, error: reloadError } = await queryFavoritesTable();
+    const { data, error: reloadError } = await getSavedPins();
 
     if (reloadError) {
       setStatus({
@@ -452,7 +328,7 @@ export function FavoritesPanel() {
       return;
     }
 
-    const payload: FavoriteInsert = {
+    const payload: SavedPinInsert = {
       auth_user_id: user.id,
       favorite_label: trimmedLabel,
       favorite_kind: isValidNumber(pickedPoint?.lat) && isValidNumber(pickedPoint?.lng) ? "map_pin" : "location",
@@ -463,24 +339,7 @@ export function FavoritesPanel() {
     setIsSaving(true);
     setStatus({ kind: "idle" });
 
-    let insertError: { message?: string } | null = null;
-    for (const tableName of FAVORITES_TABLE_CANDIDATES) {
-      const { error } = await supabase
-        .from(tableName)
-        .insert(payload)
-        .select("favorite_id, auth_user_id, favorite_label, favorite_kind, latitude, longitude, created_at")
-        .maybeSingle<FavoriteLocationRow>();
-
-      if (!error) {
-        insertError = null;
-        break;
-      }
-
-      insertError = error;
-      if (!isMissingTableError(error)) {
-        break;
-      }
-    }
+    const { error: insertError } = await createSavedPin(payload);
 
     setIsSaving(false);
 
@@ -496,9 +355,6 @@ export function FavoritesPanel() {
     setPickedPoint(null);
     setPickedPlaceName("");
     setActiveSuggestion(null);
-    if (markerRef.current && mapInstanceRef.current) {
-      markerRef.current.setLatLng(mapInstanceRef.current.getCenter());
-    }
     await reloadFavorites();
     setStatus({
       kind: "success",
@@ -508,23 +364,7 @@ export function FavoritesPanel() {
 
   async function handleDeleteFavorite(favoriteId: number) {
     setStatus({ kind: "idle" });
-    let deleteError: { message?: string } | null = null;
-    for (const tableName of FAVORITES_TABLE_CANDIDATES) {
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq("favorite_id", favoriteId);
-
-      if (!error) {
-        deleteError = null;
-        break;
-      }
-
-      deleteError = error;
-      if (!isMissingTableError(error)) {
-        break;
-      }
-    }
+    const { error: deleteError } = await deleteSavedPin(favoriteId);
 
     if (deleteError) {
       setStatus({
@@ -546,20 +386,21 @@ export function FavoritesPanel() {
     setSaveKeyword(buildSuggestionLabel(place));
     setPickedPlaceName(buildSuggestionLabel(place));
     setPickedPoint({ lat: place.latitude, lng: place.longitude });
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([place.latitude, place.longitude], Math.max(mapInstanceRef.current.getZoom(), 10), {
-        animate: true,
-      });
-    }
-    if (markerRef.current) {
-      markerRef.current.setLatLng([place.latitude, place.longitude]);
-    }
     setSuggestions([]);
+  }
+
+  function chooseMapPoint(point: SavedPinPoint) {
+    setActiveSuggestion(null);
+    setSuggestions([]);
+    setPickedPlaceName("");
+    setSaveKeyword("");
+    setPickedPoint(point);
+    setStatus({ kind: "idle" });
   }
 
   return (
     <section className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
+      <Card className="gap-0 p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -659,23 +500,6 @@ export function FavoritesPanel() {
             </div>
           ) : null}
 
-          <div className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground sm:grid-cols-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground">Search</p>
-              <p className="mt-1 leading-6">Type a place and pick from the dropdown.</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground">Map pin</p>
-              <p className="mt-1 leading-6">Click anywhere on the map to set the exact point.</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground">Hover</p>
-              <p className="mt-1 leading-6">
-                Move the cursor over the map to preview coordinates.
-              </p>
-            </div>
-          </div>
-
           <Button
             type="submit"
             className="h-11 w-full rounded-xl"
@@ -695,27 +519,32 @@ export function FavoritesPanel() {
           </Button>
         </form>
 
-        <div className="mt-6 grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground">Selected place</p>
-            <p className="mt-1 text-muted-foreground">
-              {activeSuggestion ? buildSuggestionLabel(activeSuggestion) : "No suggestion selected yet."}
-            </p>
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4" aria-live="polite">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-destructive shadow-sm">
+            <MapPin className="size-4" />
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground">Pinned point</p>
-            <p className="mt-1 text-muted-foreground">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected location</p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {pickedPoint
+                ? isResolvingPoint
+                  ? "Resolving place name…"
+                  : pickedPlaceName || "Selected map point"
+                : saveKeyword.trim() || "No location selected yet"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
               {pickedPoint
                 ? `${formatCoordinate(pickedPoint.lat)}, ${formatCoordinate(pickedPoint.lng)}`
-                : "Click the map to set a pin."}
-              {isResolvingPoint ? " Resolving place name..." : ""}
+                : saveKeyword.trim()
+                  ? "Keyword only · no coordinates selected"
+                  : "Search above or click anywhere on the map."}
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
+      <div className="contents">
+        <Card className="gap-0 py-0 shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -725,24 +554,13 @@ export function FavoritesPanel() {
                 Pin it exactly on the map
               </h2>
             </div>
-            <MapPinOff className="size-5 text-muted-foreground" />
+            <MapPinned className="size-5 text-destructive" />
           </div>
 
-          <div className="relative h-[26rem]">
-            <div ref={mapHostRef} className="absolute inset-0" />
-            <div className="pointer-events-none absolute left-4 top-4 rounded-2xl border border-border bg-background/90 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
-              {mapHover
-                ? `Hover: ${formatCoordinate(mapHover.lat)}, ${formatCoordinate(mapHover.lng)}`
-                : "Hover the map to preview coordinates"}
-            </div>
-            <div className="pointer-events-none absolute bottom-4 left-4 right-4 rounded-2xl border border-border bg-background/90 px-4 py-3 text-sm text-muted-foreground shadow-sm backdrop-blur">
-              Click anywhere on the map, or drag the pin after searching a place. The exact coordinates are saved with
-              the favorite.
-            </div>
-          </div>
-        </div>
+          <SavedPinMap point={pickedPoint} onPointChange={chooseMapPoint} />
+        </Card>
 
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
+        <Card className="gap-0 p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -752,7 +570,7 @@ export function FavoritesPanel() {
                 Your saved places
               </h2>
             </div>
-            <MapPinOff className="size-5 text-muted-foreground" />
+            <MapPinned className="size-5 text-destructive" />
           </div>
 
           <div className="mt-6 space-y-2">
@@ -818,7 +636,7 @@ export function FavoritesPanel() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </section>
   );
