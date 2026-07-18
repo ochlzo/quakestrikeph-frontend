@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { LoaderCircle, MapPin, MapPinned, Plus, SearchIcon, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { SavedPinMap, type SavedPinPoint } from "@/components/saved-pin-map";
 import { Button } from "@/components/ui/button";
@@ -13,11 +14,6 @@ import { supabase } from "@/db/supabase";
 import { sanitizePlainTextInput } from "@/lib/input-security";
 import { getFavoriteLocationLabel, type FavoriteLocationRow } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
-
-type StatusState =
-  | { kind: "idle" }
-  | { kind: "error"; message: string }
-  | { kind: "success"; message: string };
 
 type PlaceSuggestion = {
   displayName: string;
@@ -66,7 +62,6 @@ export function FavoritesPanel() {
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isResolvingPoint, setIsResolvingPoint] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const [saveKeyword, setSaveKeyword] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [pickedPoint, setPickedPoint] = useState<SavedPinPoint | null>(null);
@@ -294,14 +289,11 @@ export function FavoritesPanel() {
     const { data, error: reloadError } = await getSavedPins();
 
     if (reloadError) {
-      setStatus({
-        kind: "error",
-        message: getErrorMessage(reloadError, "Pinned location saved, but the list could not refresh."),
-      });
-      return;
+      return false;
     }
 
     setFavorites(data);
+    return true;
   }
 
   async function handleAddFavorite(event: FormEvent<HTMLFormElement>) {
@@ -312,19 +304,19 @@ export function FavoritesPanel() {
       120,
     ).trim();
     if (!trimmedLabel) {
-      setStatus({ kind: "error", message: "Type a place name or choose a point on the map first." });
+      toast.warning("Type a place name or choose a point on the map first.");
       return;
     }
 
     if (pickedPoint && !activeSuggestion && !pickedPlaceName.trim()) {
-      setStatus({ kind: "error", message: "Please wait a moment while we name the map pin." });
+      toast.warning("Please wait a moment while we name the map pin.");
       return;
     }
 
     const { data: authData } = await supabase.auth.getUser();
     const user = authData.user;
     if (!user) {
-      setStatus({ kind: "error", message: "Sign in first to save a pinned location." });
+      toast.error("Sign in first to save a pinned location.");
       return;
     }
 
@@ -337,17 +329,13 @@ export function FavoritesPanel() {
     };
 
     setIsSaving(true);
-    setStatus({ kind: "idle" });
 
     const { error: insertError } = await createSavedPin(payload);
 
     setIsSaving(false);
 
     if (insertError) {
-      setStatus({
-        kind: "error",
-        message: getErrorMessage(insertError, "We could not save that pinned location right now."),
-      });
+      toast.error(getErrorMessage(insertError, "We could not save that pinned location right now."));
       return;
     }
 
@@ -355,30 +343,24 @@ export function FavoritesPanel() {
     setPickedPoint(null);
     setPickedPlaceName("");
     setActiveSuggestion(null);
-    await reloadFavorites();
-    setStatus({
-      kind: "success",
-      message: "Pinned location saved.",
-    });
+    const refreshed = await reloadFavorites();
+    if (refreshed) {
+      toast.success("Pinned location saved.");
+    } else {
+      toast.warning("Pinned location saved, but the list could not refresh.");
+    }
   }
 
   async function handleDeleteFavorite(favoriteId: number) {
-    setStatus({ kind: "idle" });
     const { error: deleteError } = await deleteSavedPin(favoriteId);
 
     if (deleteError) {
-      setStatus({
-        kind: "error",
-        message: getErrorMessage(deleteError, "We could not remove that pinned location right now."),
-      });
+      toast.error(getErrorMessage(deleteError, "We could not remove that pinned location right now."));
       return;
     }
 
     setFavorites((current) => current.filter((favorite) => favorite.favorite_id !== favoriteId));
-    setStatus({
-      kind: "success",
-      message: "Pinned location removed.",
-    });
+    toast.success("Pinned location removed.");
   }
 
   function chooseSuggestion(place: PlaceSuggestion) {
@@ -395,7 +377,6 @@ export function FavoritesPanel() {
     setPickedPlaceName("");
     setSaveKeyword("");
     setPickedPoint(point);
-    setStatus({ kind: "idle" });
   }
 
   return (
@@ -418,21 +399,6 @@ export function FavoritesPanel() {
             {favorites.length} saved
           </div>
         </div>
-
-        {status.kind !== "idle" ? (
-          <p
-            className={cn(
-              "mt-4 rounded-xl border px-4 py-3 text-sm",
-              status.kind === "error" &&
-                "border-destructive/20 bg-destructive/10 text-destructive",
-              status.kind === "success" &&
-                "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-            )}
-            role={status.kind === "error" ? "alert" : "status"}
-          >
-            {status.message}
-          </p>
-        ) : null}
 
         <form className="mt-6 space-y-4" onSubmit={handleAddFavorite}>
           <div className="space-y-2">
