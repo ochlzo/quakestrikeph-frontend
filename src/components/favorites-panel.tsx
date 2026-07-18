@@ -25,7 +25,7 @@ type FavoriteInsert = {
   longitude: number | null;
 };
 
-const FAVORITES_TABLE_CANDIDATES = ["Favorites", "FavoriteLocations"] as const;
+const FAVORITES_TABLE_CANDIDATES = ["SavedPins", "FavoriteLocations"] as const;
 
 type PlaceSuggestion = {
   displayName: string;
@@ -71,7 +71,7 @@ function isMissingTableError(error: { message?: string } | null | undefined) {
 
 async function queryFavoritesTable() {
   const { data, error } = await supabase
-    .from("Favorites")
+    .from("SavedPins")
     .select("favorite_id, auth_user_id, favorite_label, favorite_kind, latitude, longitude, created_at")
     .order("created_at", { ascending: false });
 

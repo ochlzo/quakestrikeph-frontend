@@ -1,16 +1,53 @@
 # Supabase schema context
 
-Context only — not a runnable migration. Schema: `public`.
+Context only — not a runnable migration. Live `public` schema for Supabase project
+`yrqraepkwrlxajyonwxj`, checked through the repo-scoped MCP on 2026-07-19.
 
 ## Tables
 
-- `ScraperRuns` — `run_id` (PK), `trigger_type` (`scheduled|manual|historical_import`), `status` (`running|completed|failed`), `events_found`, `events_inserted`, `error_message`, `started_at`, `finished_at`.
-- `RawEarthquakeEvents` — `id` (PK), `Date-Time`, `Latitude`, `Longitude`, `Depth`, `Magnitude`, `Location`, `Month`, `Year`, `event_time`, `ingestion_run_id` (FK). This is the map's source of real events.
-- `SeisPredictions_v1` — `event_id` (PK/FK), `prediction_json`, `created_at`, probabilities: `aftershock_24h`, `m5_plus_aftershock`, `within_10km`, `between_10_25km`, `between_25_50km`, `beyond_50km`, `est_max_aftershock`; labels: `aftershock_24h_likelihood_level`, `m5_plus_likelihood_level`; messages: `aftershock_msg`, `m5_plus_msg`, `distance_msg`, `max_magnitude_msg`. Most scalar prediction fields default from `prediction_json`.
-- `ProcessingJobs` — `job_id` (PK), `event_id` (FK), `scraper_run_id` (nullable FK), `status` (`queued|running|completed|failed`), `attempt_count`, `error_message`, `started_at`, `finished_at`, `created_at`.
-- `PubUser` — `PUser_id` (PK), `auth_user_id` (unique FK to `auth.users.id`), `role` (`user|admin`), `Email`, `DisplayName`, `FName`, `Mname`, `LName`, `MobileNum`. This is the authenticated profile row for each app account.
-- `PubUserAuditLog` — `audit_id` (PK), `profile_puser_id` (FK), `profile_auth_user_id` (FK), `profile_email`, `action`, `changed_fields`, `old_values`, `new_values`, `changed_by` (FK to `auth.users.id`), `changed_by_email`, `changed_at`. This records profile edits.
-- `PasswordResetLog` — `log_id` (PK), `auth_user_id` (FK to `PubUser.auth_user_id`), `reset_email`, `status`, `reset_type`, `completed_at`. This records completed password resets.
+- `ScraperRuns` — `run_id` (identity PK), `trigger_type`
+  (`scheduled|manual|historical_import`), `status`
+  (`running|completed|failed`), `events_found`, `events_inserted`,
+  `events_updated`, `error_message`, `started_at`, `finished_at`.
+- `RawEarthquakeEvents` — `id` (PK), `Date-Time`, `Latitude`, `Longitude`,
+  `Depth`, `Magnitude`, `Location`, `Month`, `Year`, `event_time`,
+  `ingestion_run_id` (FK), and nullable source-revision fields
+  `source_event_group_id`, `source_bulletin_id` (unique), and `source_url`.
+  The three source-revision fields must be either all null or all populated.
+  This is the map's source of earthquake events.
+- `SeisPredictions_v1` — `event_id` (PK/FK), `prediction_json`, `created_at`,
+  generated probabilities `aftershock_24h`, `m5_plus_aftershock`,
+  `within_10km`, `between_10_25km`, `between_25_50km`, `beyond_50km`, and
+  `est_max_aftershock`; generated labels `aftershock_24h_likelihood_level`
+  and `m5_plus_likelihood_level`; generated messages `aftershock_msg`,
+  `m5_plus_msg`, `distance_msg`, and `max_magnitude_msg`.
+- `ProcessingJobs` — `job_id` (PK), `event_id` (FK), `scraper_run_id`
+  (nullable FK), `status` (`queued|running|completed|failed`),
+  `attempt_count`, `error_message`, `started_at`, `finished_at`, `created_at`.
+- `PubUser` — `PUser_id` (PK), `auth_user_id` (unique), `role`
+  (`user|admin`), `Email`, `DisplayName`, `FName`, `Mname`, `LName`,
+  `MobileNum`, plus legacy nullable columns `Password` and `Fave_id`.
+  `MobileNum`, when present, must match `09` followed by nine digits.
+- `PubUserAuditLog` — `aud_id` (PK), `profile_puser_id`,
+  `profile_auth_user_id`, `profile_email`, `action` (`insert|update`),
+  `changed_fields`, `old_values`, `new_values`, `changed_by`,
+  `changed_by_email`, `changed_at`.
+- `PasswordResetLog` — `log_id` (PK), `auth_user_id` (FK), `reset_email`,
+  `status`, `reset_type`, `completed_at`.
+- `SavedPins` — `favorite_id` (PK), `auth_user_id` (FK), `favorite_label`,
+  `favorite_kind` (`location|city|map_pin`), `latitude`, `longitude`,
+  `created_at`. Map pins require both coordinates. A user cannot have duplicate
+  case-insensitive `(favorite_label, favorite_kind)` entries.
+- `operator_profiles` — `id` (identity PK), `email` (unique), `display_name`,
+  `created_at`, `updated_at`. This is the server-managed PHIVOLCS operator
+  profile keyed by verified Cloudflare Access email.
+- `forecast_reviews` — `id` (identity PK), `event_id` (FK),
+  `forecast_created_at`, `status`
+  (`PENDING_REVIEW|DRAFT|REVIEWED_NO_ALERT|REVIEWED_FOR_ALERT`),
+  `review_text`, `internal_note`, `reviewed_at`, `created_at`, `updated_at`,
+  `operator_id` (FK). `(event_id, forecast_created_at)` is unique.
+- `audit_logs` — `id` (identity PK), `user_email`, `path`, `method`,
+  `created_at`, `metadata`. This is the server-only portal activity log.
 
 ## Relationships
 
@@ -19,57 +56,112 @@ ScraperRuns 1 -- * RawEarthquakeEvents 1 -- 1 SeisPredictions_v1
       \                         \
        \                         * -- ProcessingJobs
         * -----------------------/
-auth.users 1 -- 1 PubUser 1 -- * PubUserAuditLog
-            \                   \
-             \                   * -- PasswordResetLog
-              * -----------------/
+
+PubUser 1 -- * SavedPins
+    \    1 -- * PasswordResetLog
+
+operator_profiles 1 -- * forecast_reviews * -- 1 RawEarthquakeEvents
 ```
 
-`RawEarthquakeEvents.ingestion_run_id -> ScraperRuns.run_id`  
-`SeisPredictions_v1.event_id -> RawEarthquakeEvents.id`  
-`ProcessingJobs.event_id -> RawEarthquakeEvents.id`  
-`ProcessingJobs.scraper_run_id -> ScraperRuns.run_id` (optional)
-`PubUser.auth_user_id -> auth.users.id`
-`PubUser.role` determines admin access in the application
-`PubUserAuditLog.profile_auth_user_id -> PubUser.auth_user_id`
-`PubUserAuditLog.changed_by -> auth.users.id`
-`PasswordResetLog.auth_user_id -> PubUser.auth_user_id`
+- `RawEarthquakeEvents.ingestion_run_id -> ScraperRuns.run_id`.
+- `SeisPredictions_v1.event_id -> RawEarthquakeEvents.id` (`ON DELETE CASCADE`).
+- `ProcessingJobs.event_id -> RawEarthquakeEvents.id` (`ON DELETE CASCADE`).
+- `ProcessingJobs.scraper_run_id -> ScraperRuns.run_id` (optional).
+- `SavedPins.auth_user_id -> PubUser.auth_user_id` (`ON DELETE CASCADE`).
+- `PasswordResetLog.auth_user_id -> PubUser.auth_user_id`
+  (`ON DELETE CASCADE`).
+- `forecast_reviews.event_id -> RawEarthquakeEvents.id`
+  (`ON DELETE RESTRICT`).
+- `forecast_reviews.operator_id -> operator_profiles.id`
+  (`ON DELETE RESTRICT`).
 
-## Public search RPC
+There is currently no declared foreign key from `PubUser.auth_user_id` to
+`auth.users.id`, or from `PubUserAuditLog` to `PubUser`/`auth.users`.
+`auth.users` inserts and sign-ins instead call `handle_new_pubuser()` through
+database triggers.
 
-`search_earthquake_events(query_text, result_limit, result_offset)` searches `RawEarthquakeEvents.Location` across the full table with `pg_trgm` typo tolerance. It requires at least 3 characters, supports stable 50-event pages up to the 2,000-event map cap, runs as the caller (`security invoker`), and is executable only by `anon` and `authenticated`.
+## Browser-facing earthquake RPCs
 
-The map uses `filter_earthquake_events(...)` for both recent events and location search. It joins `SeisPredictions_v1`, applies earthquake and forecast criteria before pagination, returns forecast fields with each event, and keeps the same security-invoker, 50-row page, and 2,000-result cap contract.
+- `search_earthquake_events(query_text text, result_limit integer = 50,
+  result_offset integer = 0)` — security invoker; returns event rows.
+- `filter_earthquake_events(query_text text = null, magnitude_ranges jsonb =
+  null, depth_from float8 = null, depth_to float8 = null, date_from timestamp =
+  null, date_to timestamp = null, aftershock_24h_likelihoods text[] =
+  ['low','medium','high'], m5_plus_likelihoods text[] =
+  ['low','medium','high'], minimum_estimated_strongest_aftershock float8 = null,
+  include_no_forecast boolean = true, result_limit integer = 51,
+  result_offset integer = 0)` — security invoker; returns filtered event and
+  forecast summary rows.
+- `get_forecast_playback_page(trigger_event_id text, cursor_event_time
+  timestamptz = null, cursor_event_id text = null, result_limit integer = 100)`
+  — security definer; legacy/default-scope overload returning JSONB.
+- `get_forecast_playback_page(trigger_event_id text, cursor_event_time
+  timestamptz, cursor_event_id text, result_limit integer, playback_scope text)`
+  — security definer; scoped overload returning JSONB. `playback_scope` is
+  `gk`, `100km`, or `all`.
 
-The supporting `raw_earthquake_events_location_trgm_idx` GiST expression index is defined in `supabase/migrations/`.
+These RPCs have execute grants for `anon` and `authenticated`. Search and
+filter run as the caller. Playback is security definer so it can expose its
+conservative `ScraperRuns` watermark without granting browser roles direct
+table reads.
 
-## Forecast playback RPC
+## Portal RPCs
 
-`get_forecast_playback_page(trigger_event_id, cursor_event_time, cursor_event_id, result_limit, playback_scope)` is the browser-safe forecast playback boundary. It converts Philippine-local `RawEarthquakeEvents.event_time` before comparisons, excludes the trigger, caps pages at 100 rows, and uses `(event_time, id)` cursor pagination so equal timestamps remain stable. `playback_scope` accepts `gk`, `100km`, or `all`; `gk` uses the magnitude-dependent Gardner–Knopoff radius `10^(0.1238M + 0.983)` km, `100km` applies the fixed 100 km boundary, and `all` applies no distance filter.
+- `get_portal_event_page(query_text text = null, magnitude_ranges jsonb = null,
+  depth_from float8 = null, depth_to float8 = null, date_from date = null,
+  date_to date = null, result_limit integer = 50, result_offset integer = 0)`.
+- `get_portal_forecast_page(query_text text = null, review_statuses text[] =
+  null, magnitude_ranges jsonb = null, depth_from float8 = null, depth_to
+  float8 = null, date_from date = null, date_to date = null,
+  aftershock_24h_likelihoods text[] = null, m5_plus_likelihoods text[] = null,
+  minimum_estimated_strongest_aftershock float8 = null, result_limit integer =
+  50, result_offset integer = 0)`.
+- `get_portal_audit_log_page(query_text text = null, actions text[] = null,
+  date_from date = null, date_to date = null, result_limit integer = 50,
+  result_offset integer = 0)`.
 
-The RPC returns the selected playback scope, the trigger's Gardner–Knopoff radius, an exact `within_gk_radius` flag on every event, the fixed forecast start/end, a conservative `observed_through` watermark, `pending | current | complete | delayed` freshness, events, `next_cursor`, and `has_more`. The watermark is the latest successful scheduled/manual `ScraperRuns.started_at`. No later success after the forecast is `pending`; coverage inside 24 hours is `current`; coverage through 24 hours is `complete`; a newer failed attempt after the last success is `delayed`.
+All three return JSONB and are security invoker functions.
 
-The function is `security definer` so it can expose only this conservative watermark without granting browser roles direct access to `ScraperRuns`. Execute is revoked from `public` and granted only to `anon` and `authenticated`.
+## Supporting functions and triggers
 
-## RLS
+- `handle_new_pubuser()` creates or synchronizes `PubUser` rows after an
+  `auth.users` insert and after `last_sign_in_at` changes.
+- `normalize_pubuser_profile_row()` normalizes profile fields before insert or
+  profile-field updates; `audit_pubuser_profile_changes()` records those
+  inserts/updates afterward.
+- Helpers: `normalize_pubuser_name(text)`, `normalize_pubuser_phone(text)`,
+  `pubuser_profile_snapshot(PubUser)`, and `is_admin_user()`.
+- `rls_auto_enable()` is an event-trigger function that enables RLS for newly
+  created public tables.
 
- RLS is enabled on the public tables. Browser map access must be read-only:
+## Important indexes
 
-- Allow `SELECT` for `anon` and `authenticated` on `RawEarthquakeEvents`.
-- Allow `SELECT` for `anon` and `authenticated` on `SeisPredictions_v1`.
-- Do not expose `ScraperRuns` or `ProcessingJobs` to the browser.
-- Do not replace the playback RPC watermark with direct browser access to `ScraperRuns`.
-- Allow authenticated users to read their own `PubUser` row, `PubUserAuditLog`, and `PasswordResetLog` rows through the application.
-- Treat `PubUser.role = 'admin'` as the admin-dashboard access gate.
+- `raw_earthquake_events_location_trgm_idx` — GiST trigram index on normalized
+  `RawEarthquakeEvents.Location`.
+- `index_rawearthquakeevents_event_time` — descending event-time index.
+- `raw_earthquake_events_source_event_group_id_idx` and the unique
+  `raw_earthquake_events_source_bulletin_id_key` support bulletin revisions.
+- `processing_jobs_event_id_idx` and `processing_jobs_scraper_run_id_idx`.
+- `forecast_reviews_status_idx` on `(status, forecast_created_at desc)`.
+- `audit_logs_created_at_idx` on `created_at desc`.
 
-Required policies (apply through Supabase, not from this file):
+## RLS and browser access
 
-```sql
-create policy "public map reads events"
-on public."RawEarthquakeEvents" for select
-to anon, authenticated using (true);
+RLS is enabled on every public table.
 
-create policy "public map reads predictions"
-on public."SeisPredictions_v1" for select
-to anon, authenticated using (true);
-```
+- `RawEarthquakeEvents` and `SeisPredictions_v1`: `anon` and `authenticated`
+  may select all rows through the `public map reads ...` policies. No browser
+  mutation policy exists.
+- `PubUser`: authenticated users may select, insert, and update only their own
+  row. Insert/update also require `Email` to match the JWT email.
+- `SavedPins`: authenticated users may select, insert, and delete only their
+  own rows. There is no update policy.
+- `PubUserAuditLog`: authenticated users may currently select all rows.
+- `PasswordResetLog`: authenticated users may currently select all rows and
+  insert a row when `reset_email` matches the JWT email.
+- `ScraperRuns`, `ProcessingJobs`, `operator_profiles`, `forecast_reviews`, and
+  `audit_logs`: no RLS policies are currently defined, so browser roles cannot
+  access rows despite table-level grants.
+
+The live grants are broader than the effective browser access; RLS policies
+are the enforcement boundary described above.

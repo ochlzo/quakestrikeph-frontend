@@ -39,3 +39,4 @@ supabase/migrations/*
 !supabase/migrations/20260715232000_enforce_pubuser_mobile_number.sql
 !supabase/migrations/20260715234000_add_pubuser_audit_log.sql
 !supabase/migrations/20260715235500_enforce_unique_pubuser_mobile_number.sql
+!supabase/migrations/20260719130000_rename_favorites_to_saved_pins.sql
