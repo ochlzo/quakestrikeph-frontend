@@ -156,6 +156,8 @@ function FilterPanel({
                 onMinimumEstimatedStrongestAftershockChange={state.setMinimumEstimatedStrongestAftershock}
                 includeNoForecast={state.includeNoForecast}
                 onIncludeNoForecastChange={state.setIncludeNoForecast}
+                onlyWithPhivolcsReview={state.onlyWithPhivolcsReview}
+                onOnlyWithPhivolcsReviewChange={state.setOnlyWithPhivolcsReview}
                 magnitudeError={state.forecastMagnitudeError}
               />
             </AccordionContent>

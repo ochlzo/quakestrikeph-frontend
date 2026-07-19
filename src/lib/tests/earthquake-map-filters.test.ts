@@ -94,4 +94,10 @@ test("detects filters applied to the current map query", () => {
   filtered.events.depth = { from: "0", to: "50" }
   assert.equal(hasActiveMapFilters(filtered), true)
   assert.equal(countActiveMapFilters(filtered), 2)
+
+  const reviewedOnly = createDefaultMapFilters()
+  reviewedOnly.forecasts.onlyWithPhivolcsReview = true
+  assert.equal(countActiveMapFilters(reviewedOnly), 1)
+  reviewedOnly.forecasts.includeNoForecast = false
+  assert.equal(countActiveMapFilters(reviewedOnly), 1)
 })

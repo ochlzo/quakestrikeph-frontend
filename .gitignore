@@ -42,3 +42,4 @@ supabase/migrations/*
 !supabase/migrations/20260719130000_rename_favorites_to_saved_pins.sql
 !supabase/migrations/20260719140000_add_pubuser_alert_preferences.sql
 !supabase/migrations/20260719133051_add_public_forecast_review.sql
+!supabase/migrations/20260719135129_filter_earthquakes_by_phivolcs_review.sql

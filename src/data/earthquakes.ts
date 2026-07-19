@@ -190,6 +190,7 @@ async function getEarthquakeMarkerPage(
     m5_plus_likelihoods: filters.forecasts.m5PlusLikelihoods,
     minimum_estimated_strongest_aftershock: filters.forecasts.minimumEstimatedStrongestAftershock,
     include_no_forecast: filters.forecasts.includeNoForecast,
+    only_with_phivolcs_review: filters.forecasts.onlyWithPhivolcsReview,
     result_limit: pageSize + 1,
     result_offset: offset,
   })

@@ -72,6 +72,8 @@ export function ForecastFilterFields({
   onMinimumEstimatedStrongestAftershockChange,
   includeNoForecast,
   onIncludeNoForecastChange,
+  onlyWithPhivolcsReview,
+  onOnlyWithPhivolcsReviewChange,
   magnitudeError,
 }: {
   selections: ForecastSelections
@@ -80,6 +82,8 @@ export function ForecastFilterFields({
   onMinimumEstimatedStrongestAftershockChange: (value: string) => void
   includeNoForecast: boolean
   onIncludeNoForecastChange: (checked: boolean) => void
+  onlyWithPhivolcsReview: boolean
+  onOnlyWithPhivolcsReviewChange: (checked: boolean) => void
   magnitudeError?: string
 }) {
   return (
@@ -128,6 +132,15 @@ export function ForecastFilterFields({
           className="size-4 shrink-0 rounded border-input accent-primary"
         />
         <span>Include earthquakes with no forecast available</span>
+      </Label>
+      <Label className="cursor-pointer leading-snug">
+        <input
+          type="checkbox"
+          checked={onlyWithPhivolcsReview}
+          onChange={(event) => onOnlyWithPhivolcsReviewChange(event.target.checked)}
+          className="size-4 shrink-0 rounded border-input accent-primary"
+        />
+        <span>Only earthquakes with an available PHIVOLCS review</span>
       </Label>
     </div>
   )

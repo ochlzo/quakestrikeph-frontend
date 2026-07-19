@@ -92,9 +92,11 @@ database triggers.
   null, date_to timestamp = null, aftershock_24h_likelihoods text[] =
   ['low','medium','high'], m5_plus_likelihoods text[] =
   ['low','medium','high'], minimum_estimated_strongest_aftershock float8 = null,
-  include_no_forecast boolean = true, result_limit integer = 51,
-  result_offset integer = 0)` — security invoker; returns filtered event and
-  forecast summary rows.
+  include_no_forecast boolean = true, only_with_phivolcs_review boolean = false,
+  result_limit integer = 51, result_offset integer = 0)` — security definer;
+  returns filtered event and forecast summary rows. Review-only matches finalized,
+  non-empty reviews for the current forecast generation and takes precedence over
+  `include_no_forecast`.
 - `get_forecast_playback_page(trigger_event_id text, cursor_event_time
   timestamptz = null, cursor_event_id text = null, result_limit integer = 100)`
   — security definer; legacy/default-scope overload returning JSONB.
@@ -106,10 +108,10 @@ database triggers.
   the finalized review text, review time, and operator display name for the
   event's current forecast generation.
 
-These RPCs have execute grants for `anon` and `authenticated`. Search and
-filter run as the caller. Playback and public review lookup are security
-definer functions so they can expose a narrow result without granting browser
-roles direct table reads.
+These RPCs have execute grants for `anon` and `authenticated`. Search runs as
+the caller. Filter, playback, and public review lookup are security definer
+functions so they can expose narrow results without granting browser roles
+direct table reads.
 
 ## Portal RPCs
 
