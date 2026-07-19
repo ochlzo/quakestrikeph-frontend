@@ -102,11 +102,14 @@ database triggers.
   timestamptz, cursor_event_id text, result_limit integer, playback_scope text)`
   — security definer; scoped overload returning JSONB. `playback_scope` is
   `gk`, `100km`, or `all`.
+- `get_forecast_review(review_event_id text)` — security definer; returns only
+  the finalized review text, review time, and operator display name for the
+  event's current forecast generation.
 
 These RPCs have execute grants for `anon` and `authenticated`. Search and
-filter run as the caller. Playback is security definer so it can expose its
-conservative `ScraperRuns` watermark without granting browser roles direct
-table reads.
+filter run as the caller. Playback and public review lookup are security
+definer functions so they can expose a narrow result without granting browser
+roles direct table reads.
 
 ## Portal RPCs
 
