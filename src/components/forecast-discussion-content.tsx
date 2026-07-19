@@ -1,9 +1,11 @@
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type {
   EarthquakeEventDetail,
   EarthquakeForecast,
   ForecastPlaybackEvent,
   ForecastPlaybackPage,
+  ForecastReview,
 } from "@/data/earthquakes";
 import {
   FORECAST_DISTANCE_BANDS,
@@ -119,11 +121,13 @@ export function ForecastDiscussionSummary({
 export function ForecastDiscussionSections({
   trigger,
   forecast,
+  review,
   playback,
   observations,
 }: {
   trigger: EarthquakeEventDetail;
   forecast: EarthquakeForecast;
+  review: ForecastReview | null;
   playback: ForecastPlaybackPage;
   observations: ForecastPlaybackEvent[];
 }) {
@@ -285,6 +289,29 @@ export function ForecastDiscussionSections({
           ))}
         </dl>
       </section>
+
+      {review ? (
+        <>
+          <Separator />
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              PHIVOLCS review
+            </h2>
+            <Card>
+              <CardContent className="space-y-4">
+                <p className="whitespace-pre-wrap leading-7">
+                  {review.reviewText}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Reviewed by {review.displayName} ·{" "}
+                  {PHT_DATE.format(new Date(review.reviewedAt))} PHT
+                </p>
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      ) : null}
 
       <Separator />
 

@@ -13,16 +13,19 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   getEarthquakeEvent,
   getEarthquakeForecast,
+  getForecastReview,
   getForecastPlaybackPage,
   type EarthquakeEventDetail,
   type EarthquakeForecast,
   type ForecastPlaybackEvent,
   type ForecastPlaybackPage,
+  type ForecastReview,
 } from "@/data/earthquakes"
 
 type ReportData = {
   trigger: EarthquakeEventDetail
   forecast: EarthquakeForecast
+  review: ForecastReview | null
   playback: ForecastPlaybackPage
 }
 
@@ -109,14 +112,15 @@ export function ForecastDiscussionPage() {
     Promise.all([
       getEarthquakeEvent(eventId),
       getEarthquakeForecast(eventId),
+      getForecastReview(eventId),
       getForecastPlaybackPage(eventId),
     ])
-      .then(([trigger, forecast, initialPlayback]) => {
+      .then(([trigger, forecast, review, initialPlayback]) => {
         if (cancelled) return
         if (!trigger) return setError("unknown-event")
         if (!forecast) return setError("no-forecast")
         if (!initialPlayback) return setError("unavailable-data")
-        setData({ trigger, forecast, playback: initialPlayback })
+        setData({ trigger, forecast, review, playback: initialPlayback })
         setPlayback(initialPlayback)
         setObservations(initialPlayback.events)
       })
@@ -165,6 +169,7 @@ export function ForecastDiscussionPage() {
       <ForecastDiscussionSections
         trigger={data.trigger}
         forecast={data.forecast}
+        review={data.review}
         playback={playback}
         observations={observations}
       />

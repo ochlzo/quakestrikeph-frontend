@@ -120,6 +120,12 @@ type ForecastPlaybackRpcResponse = {
   has_more: boolean
 }
 
+type ForecastReviewRpcResponse = {
+  review_text: string
+  reviewed_at: string
+  display_name: string
+}
+
 export type EarthquakeForecast = {
   eventId: string
   createdAt: string
@@ -136,6 +142,12 @@ export type EarthquakeForecast = {
   m5PlusMessage: string | null
   distanceMessage: string | null
   maxMagnitudeMessage: string | null
+}
+
+export type ForecastReview = {
+  reviewText: string
+  reviewedAt: string
+  displayName: string
 }
 
 function toEarthquakeMarkers(events: EarthquakeEvent[]) {
@@ -178,6 +190,7 @@ async function getEarthquakeMarkerPage(
     m5_plus_likelihoods: filters.forecasts.m5PlusLikelihoods,
     minimum_estimated_strongest_aftershock: filters.forecasts.minimumEstimatedStrongestAftershock,
     include_no_forecast: filters.forecasts.includeNoForecast,
+    only_with_phivolcs_review: filters.forecasts.onlyWithPhivolcsReview,
     result_limit: pageSize + 1,
     result_offset: offset,
   })
@@ -258,6 +271,21 @@ export async function getEarthquakeForecast(eventId: string): Promise<Earthquake
     m5PlusMessage: forecast.m5_plus_msg,
     distanceMessage: forecast.distance_msg,
     maxMagnitudeMessage: forecast.max_magnitude_msg,
+  }
+}
+
+export async function getForecastReview(eventId: string): Promise<ForecastReview | null> {
+  const { data, error } = await supabase.rpc("get_forecast_review", {
+    review_event_id: eventId,
+  })
+  if (error) throw error
+  if (!data) return null
+
+  const review = data as ForecastReviewRpcResponse
+  return {
+    reviewText: review.review_text,
+    reviewedAt: review.reviewed_at,
+    displayName: review.display_name,
   }
 }
 

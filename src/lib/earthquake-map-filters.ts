@@ -27,6 +27,7 @@ export type ForecastFilters = {
   m5PlusLikelihoods: string[]
   minimumEstimatedStrongestAftershock: number | null
   includeNoForecast: boolean
+  onlyWithPhivolcsReview: boolean
 }
 export type EarthquakeMapFilters = {
   events: {
@@ -45,6 +46,7 @@ export function createDefaultMapFilters(): EarthquakeMapFilters {
       m5PlusLikelihoods: [...FORECAST_LIKELIHOODS],
       minimumEstimatedStrongestAftershock: null,
       includeNoForecast: true,
+      onlyWithPhivolcsReview: false,
     },
   }
 }
@@ -57,7 +59,8 @@ export function countActiveMapFilters(filters?: EarthquakeMapFilters) {
     filters.events.depth,
     filters.events.date,
     filters.forecasts.minimumEstimatedStrongestAftershock !== null,
-    !filters.forecasts.includeNoForecast,
+    !filters.forecasts.includeNoForecast && !filters.forecasts.onlyWithPhivolcsReview,
+    filters.forecasts.onlyWithPhivolcsReview,
     !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.aftershock24hLikelihoods.includes(value)),
     !FORECAST_LIKELIHOODS.every((value) => filters.forecasts.m5PlusLikelihoods.includes(value)),
   ].filter(Boolean).length

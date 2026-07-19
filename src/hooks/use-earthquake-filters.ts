@@ -39,6 +39,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
   const [selectedMagnitudes, setSelectedMagnitudes] = React.useState<string[]>([])
   const [minimumEstimatedStrongestAftershock, setMinimumEstimatedStrongestAftershock] = React.useState("")
   const [includeNoForecast, setIncludeNoForecast] = React.useState(true)
+  const [onlyWithPhivolcsReview, setOnlyWithPhivolcsReview] = React.useState(false)
   const loading = useFilterLoading()
 
   const liveDateError = filters.date ? validateDateRange(dateRange) : undefined
@@ -93,6 +94,16 @@ export function useEarthquakeFilters(onApplied: () => void) {
     })
   }
 
+  function changeIncludeNoForecast(checked: boolean) {
+    setIncludeNoForecast(checked)
+    if (checked) setOnlyWithPhivolcsReview(false)
+  }
+
+  function changeOnlyWithPhivolcsReview(checked: boolean) {
+    setOnlyWithPhivolcsReview(checked)
+    if (checked) setIncludeNoForecast(false)
+  }
+
   function resetFilters() {
     setFilters(initialFilters)
     setRanges(initialRanges)
@@ -103,6 +114,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
     setSelectedMagnitudes([])
     setMinimumEstimatedStrongestAftershock("")
     setIncludeNoForecast(true)
+    setOnlyWithPhivolcsReview(false)
     loading.setLoadingAction("reset")
     onApplied()
     document.dispatchEvent(new CustomEvent("quakestrike:filters", {
@@ -129,6 +141,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
         m5PlusLikelihoods: [...selectedForecasts.m5PlusLikelihoods],
         minimumEstimatedStrongestAftershock: parsedMinimumAftershock,
         includeNoForecast,
+        onlyWithPhivolcsReview,
       },
     }
 
@@ -148,6 +161,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
     selectedMagnitudes,
     minimumEstimatedStrongestAftershock,
     includeNoForecast,
+    onlyWithPhivolcsReview,
     liveDateError,
     dateError,
     forecastMagnitudeError,
@@ -163,6 +177,7 @@ export function useEarthquakeFilters(onApplied: () => void) {
     setMinimumEstimatedStrongestAftershock: (value: string) => {
       setMinimumEstimatedStrongestAftershock(sanitizeDecimalInput(value))
     },
-    setIncludeNoForecast,
+    setIncludeNoForecast: changeIncludeNoForecast,
+    setOnlyWithPhivolcsReview: changeOnlyWithPhivolcsReview,
   }
 }

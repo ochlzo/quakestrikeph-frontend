@@ -9,10 +9,19 @@ import { FavoritesPanel } from "../components/favorites-panel";
     <div class="pointer-events-none absolute inset-0 opacity-55 [background-image:linear-gradient(to_right,rgba(148,163,184,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.1)_1px,transparent_1px)] [background-size:44px_44px]" />
 
     <section class="relative mx-auto min-h-screen w-full max-w-6xl px-6 py-10 sm:px-10">
+      <a
+        href="/"
+        class="mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Back to map
+      </a>
+
       <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div class="space-y-2">
           <div class="flex items-center gap-3">
             <div class="flex size-11 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+              <MapPinned className="size-5 text-destructive" />
             </div>
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -30,14 +39,6 @@ import { FavoritesPanel } from "../components/favorites-panel";
       </div>
 
       <FavoritesPanel client:load />
-
-      <a
-        href="/"
-        class="mt-8 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-[color:var(--destructive)]"
-      >
-        <ArrowLeft className="size-4" />
-        Back to dashboard
-      </a>
     </section>
   </main>
 </Layout>
