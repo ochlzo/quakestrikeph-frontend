@@ -224,6 +224,7 @@ export async function getEarthquakeEvent(eventId: string): Promise<EarthquakeEve
     .from("RawEarthquakeEvents")
     .select('id, "Date-Time", "Latitude", "Longitude", "Depth", "Magnitude", "Location", event_time')
     .eq("id", eventId)
+    .in("source_status", ["CURRENT", "HISTORICAL"])
     .maybeSingle()
   if (error) throw error
   if (!data) return null
