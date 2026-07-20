@@ -2,7 +2,6 @@
 import Layout from "../layouts/Layout.astro";
 import { AdminGate } from "../components/admin-gate";
 import { AdminLogoutButton } from "../components/admin-logout-button";
-import { AdminPinsPanel } from "../components/admin-pins-panel";
 import { AdminUsersPanel } from "../components/admin-users-panel";
 ---
 
@@ -30,7 +29,6 @@ import { AdminUsersPanel } from "../components/admin-users-panel";
 
         <div class="space-y-6">
           <AdminUsersPanel client:load />
-          <AdminPinsPanel client:load />
         </div>
       </section>
     </main>
