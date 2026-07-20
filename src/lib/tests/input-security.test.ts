@@ -66,7 +66,7 @@ describe("input security helpers", () => {
     assert.equal(createResult.value.mobileNumber, "09123456789")
     assert.equal(validateAdminCreateUserInput({ email: "admin@example.com", password: "short" }).error, "Password must be at least 8 characters.")
     assert.equal(validateAdminUpdateUserInput({ email: "admin@example.com", password: "" }).error, undefined)
-    assert.equal(validateAccountStatusInput({ accountStatus: "inactive" }).value.accountStatus, "inactive")
+    assert.equal(validateAccountStatusInput({ accountStatus: "inactive" }).value?.accountStatus, "inactive")
     assert.equal(validateAccountStatusInput({ accountStatus: "deleted" }).error, "Account status must be active or inactive.")
   })
 })

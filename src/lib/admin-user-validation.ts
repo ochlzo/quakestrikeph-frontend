@@ -38,12 +38,12 @@ function optionalName(input: Record<string, unknown>, key: string) {
   return value || null
 }
 
-function optionalMobile(input: Record<string, unknown>) {
+function optionalMobile(input: Record<string, unknown>): ValidationResult<string | null> {
   const value = sanitizePhoneInput(stringValue(input, "mobileNumber"))
   if (!value) return { value: null }
 
   const result = validateMobileNumberInput(value)
-  if (result.error) return result
+  if (result.error !== undefined) return { error: result.error }
   return { value: result.value }
 }
 
@@ -56,7 +56,7 @@ function validateProfileInput(input: unknown, passwordMode: "required" | "option
   const mobileResult = optionalMobile(input)
 
   if (emailResult.error) return { error: emailResult.error }
-  if (mobileResult.error) return { error: mobileResult.error }
+  if (mobileResult.error !== undefined) return { error: mobileResult.error }
 
   const rawPassword = stringValue(input, "password")
   const password = sanitizePasswordInput(rawPassword)

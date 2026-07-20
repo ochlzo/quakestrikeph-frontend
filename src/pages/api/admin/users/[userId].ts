@@ -24,7 +24,7 @@ export const PATCH = (async ({ request, params }) => {
     const { actor, adminClient } = await requireAdminContext(request)
     const validation = validateAdminUpdateUserInput(await readJsonBody(request))
 
-    if (validation.error) {
+    if (validation.error !== undefined) {
       return jsonResponse({ error: validation.error }, 400)
     }
 
@@ -110,7 +110,7 @@ export const PUT = (async ({ request, params }) => {
     const { actor, adminClient } = await requireAdminContext(request)
     const validation = validateAccountStatusInput(await readJsonBody(request))
 
-    if (validation.error) {
+    if (validation.error !== undefined) {
       return jsonResponse({ error: validation.error }, 400)
     }
 

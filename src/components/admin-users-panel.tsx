@@ -1,11 +1,21 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { BadgeCheck, Clock3, Edit3, HistoryIcon, LoaderCircle, RotateCcw, ShieldCheck, UserX, Users2 } from "lucide-react"
-import { toast } from "sonner"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  BadgeCheck,
+  Clock3,
+  Edit3,
+  HistoryIcon,
+  LoaderCircle,
+  RotateCcw,
+  ShieldCheck,
+  UserX,
+  Users2,
+} from "lucide-react";
+import { toast } from "sonner";
 
-import { AdminUserDialog } from "@/components/admin-user-dialog"
-import { Button } from "@/components/ui/button"
+import { AdminUserDialog } from "@/components/admin-user-dialog";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +23,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   createAdminUserAccount,
   getAdminDashboardData,
@@ -23,38 +33,38 @@ import {
   type AuditValues,
   type PasswordResetLogRow,
   type PubUserAuditRow,
-} from "@/data/admin-users"
-import { getCurrentAppSession } from "@/lib/app-session"
-import type { AdminUserProfileInput } from "@/lib/admin-user-validation"
-import { cn } from "@/lib/utils"
+} from "@/data/admin-users";
+import { getCurrentAppSession } from "@/lib/app-session";
+import type { AdminUserProfileInput } from "@/lib/admin-user-validation";
+import { cn } from "@/lib/utils";
 
 const auditDateFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
   timeStyle: "short",
-})
+});
 
 function getUserLabel(user: AdminUserRow) {
   if (user.DisplayName?.trim()) {
-    return user.DisplayName.trim()
+    return user.DisplayName.trim();
   }
 
   const parts = [user.FName, user.Mname, user.LName]
     .map((part) => part?.trim())
-    .filter(Boolean) as string[]
+    .filter(Boolean) as string[];
 
-  return parts.length > 0 ? parts.join(" ") : user.Email?.trim() || "Account"
+  return parts.length > 0 ? parts.join(" ") : user.Email?.trim() || "Account";
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
-    return error.message
+    return error.message;
   }
 
-  return fallback
+  return fallback;
 }
 
 function StatusBadge({ status }: { status: AdminUserRow["account_status"] }) {
-  const isActive = status !== "inactive"
+  const isActive = status !== "inactive";
 
   return (
     <span
@@ -67,145 +77,171 @@ function StatusBadge({ status }: { status: AdminUserRow["account_status"] }) {
     >
       {isActive ? "active" : "inactive"}
     </span>
-  )
+  );
 }
 
 export function AdminUsersPanel() {
-  const [users, setUsers] = useState<AdminUserRow[]>([])
-  const [auditLogs, setAuditLogs] = useState<PubUserAuditRow[]>([])
-  const [resetLogs, setResetLogs] = useState<PasswordResetLogRow[]>([])
-  const [currentAdminUserId, setCurrentAdminUserId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingAudit, setIsLoadingAudit] = useState(true)
-  const [isLoadingResetLogs, setIsLoadingResetLogs] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [auditError, setAuditError] = useState<string | null>(null)
-  const [resetLogError, setResetLogError] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<AdminUserRow | null>(null)
-  const [statusTarget, setStatusTarget] = useState<AdminUserRow | null>(null)
-  const [isSubmittingUser, setIsSubmittingUser] = useState(false)
-  const [statusUserId, setStatusUserId] = useState<string | null>(null)
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [auditLogs, setAuditLogs] = useState<PubUserAuditRow[]>([]);
+  const [resetLogs, setResetLogs] = useState<PasswordResetLogRow[]>([]);
+  const [currentAdminUserId, setCurrentAdminUserId] = useState<string | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(true);
+  const [isLoadingResetLogs, setIsLoadingResetLogs] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [resetLogError, setResetLogError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUserRow | null>(null);
+  const [statusTarget, setStatusTarget] = useState<AdminUserRow | null>(null);
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+  const [statusUserId, setStatusUserId] = useState<string | null>(null);
 
-  const loadDashboard = useCallback(async (shouldApply: () => boolean = () => true) => {
-    setIsLoading(true)
-    setIsLoadingAudit(true)
-    setIsLoadingResetLogs(true)
+  const loadDashboard = useCallback(
+    async (shouldApply: () => boolean = () => true) => {
+      setIsLoading(true);
+      setIsLoadingAudit(true);
+      setIsLoadingResetLogs(true);
 
-    const [session, dashboard] = await Promise.all([
-      getCurrentAppSession(),
-      getAdminDashboardData(),
-    ])
+      const [session, dashboard] = await Promise.all([
+        getCurrentAppSession(),
+        getAdminDashboardData(),
+      ]);
 
-    if (!shouldApply()) {
-      return
-    }
+      if (!shouldApply()) {
+        return;
+      }
 
-    setCurrentAdminUserId(session.user?.id ?? null)
+      setCurrentAdminUserId(session.user?.id ?? null);
 
-    if (dashboard.users.error) {
-      setUsers([])
-      setError(dashboard.users.error.message)
-    } else {
-      setUsers(dashboard.users.data)
-      setError(null)
-    }
+      if (dashboard.users.error) {
+        setUsers([]);
+        setError(dashboard.users.error.message);
+      } else {
+        setUsers(dashboard.users.data);
+        setError(null);
+      }
 
-    if (dashboard.auditLogs.error) {
-      setAuditLogs([])
-      setAuditError(dashboard.auditLogs.error.message)
-    } else {
-      setAuditLogs(dashboard.auditLogs.data)
-      setAuditError(null)
-    }
+      if (dashboard.auditLogs.error) {
+        setAuditLogs([]);
+        setAuditError(dashboard.auditLogs.error.message);
+      } else {
+        setAuditLogs(dashboard.auditLogs.data);
+        setAuditError(null);
+      }
 
-    if (dashboard.resetLogs.error) {
-      setResetLogs([])
-      setResetLogError(dashboard.resetLogs.error.message)
-    } else {
-      setResetLogs(dashboard.resetLogs.data)
-      setResetLogError(null)
-    }
+      if (dashboard.resetLogs.error) {
+        setResetLogs([]);
+        setResetLogError(dashboard.resetLogs.error.message);
+      } else {
+        setResetLogs(dashboard.resetLogs.data);
+        setResetLogError(null);
+      }
 
-    setIsLoading(false)
-    setIsLoadingAudit(false)
-    setIsLoadingResetLogs(false)
-  }, [])
+      setIsLoading(false);
+      setIsLoadingAudit(false);
+      setIsLoadingResetLogs(false);
+    },
+    [],
+  );
 
   useEffect(() => {
-    let active = true
+    let active = true;
 
-    void loadDashboard(() => active)
+    void loadDashboard(() => active);
 
     return () => {
-      active = false
-    }
-  }, [loadDashboard])
+      active = false;
+    };
+  }, [loadDashboard]);
 
   const latestLogin = useMemo(() => {
-    let latestValue: number | null = null
+    let latestValue: number | null = null;
 
     for (const user of users) {
-      const candidate = user.PUser_id
-      if (!candidate) continue
-      if (latestValue === null || candidate > latestValue) latestValue = candidate
+      const candidate = user.PUser_id;
+      if (!candidate) continue;
+      if (latestValue === null || candidate > latestValue)
+        latestValue = candidate;
     }
 
-    return latestValue
-  }, [users])
+    return latestValue;
+  }, [users]);
 
   const activeUserCount = useMemo(
     () => users.filter((user) => user.account_status !== "inactive").length,
     [users],
-  )
+  );
 
   async function handleCreateUser(input: AdminUserProfileInput) {
-    setIsSubmittingUser(true)
+    setIsSubmittingUser(true);
 
     try {
-      await createAdminUserAccount(input)
-      toast.success("Account created.")
-      setCreateOpen(false)
-      await loadDashboard()
+      await createAdminUserAccount(input);
+      toast.success("Account created.");
+      setCreateOpen(false);
+      await loadDashboard();
     } catch (createError) {
-      toast.error(getErrorMessage(createError, "We could not create that account right now."))
+      toast.error(
+        getErrorMessage(
+          createError,
+          "We could not create that account right now.",
+        ),
+      );
     } finally {
-      setIsSubmittingUser(false)
+      setIsSubmittingUser(false);
     }
   }
 
   async function handleUpdateUser(input: AdminUserProfileInput) {
-    if (!editingUser) return
+    if (!editingUser) return;
 
-    setIsSubmittingUser(true)
+    setIsSubmittingUser(true);
 
     try {
-      await updateAdminUserAccount(editingUser.auth_user_id, input)
-      toast.success("Account updated.")
-      setEditingUser(null)
-      await loadDashboard()
+      await updateAdminUserAccount(editingUser.auth_user_id, input);
+      toast.success("Account updated.");
+      setEditingUser(null);
+      await loadDashboard();
     } catch (updateError) {
-      toast.error(getErrorMessage(updateError, "We could not update that account right now."))
+      toast.error(
+        getErrorMessage(
+          updateError,
+          "We could not update that account right now.",
+        ),
+      );
     } finally {
-      setIsSubmittingUser(false)
+      setIsSubmittingUser(false);
     }
   }
 
   async function handleConfirmStatusChange() {
-    if (!statusTarget) return
+    if (!statusTarget) return;
 
-    const nextStatus = statusTarget.account_status === "inactive" ? "active" : "inactive"
-    setStatusUserId(statusTarget.auth_user_id)
+    const nextStatus =
+      statusTarget.account_status === "inactive" ? "active" : "inactive";
+    setStatusUserId(statusTarget.auth_user_id);
 
     try {
-      await setAdminUserAccountStatus(statusTarget.auth_user_id, nextStatus)
-      toast.success(nextStatus === "active" ? "Account reactivated." : "Account deactivated.")
-      setStatusTarget(null)
-      await loadDashboard()
+      await setAdminUserAccountStatus(statusTarget.auth_user_id, nextStatus);
+      toast.success(
+        nextStatus === "active"
+          ? "Account reactivated."
+          : "Account deactivated.",
+      );
+      setStatusTarget(null);
+      await loadDashboard();
     } catch (statusError) {
-      toast.error(getErrorMessage(statusError, "We could not update that account status right now."))
+      toast.error(
+        getErrorMessage(
+          statusError,
+          "We could not update that account status right now.",
+        ),
+      );
     } finally {
-      setStatusUserId(null)
+      setStatusUserId(null);
     }
   }
 
@@ -217,14 +253,18 @@ export function AdminUsersPanel() {
             <Users2 className="size-4" />
             Saved users
           </div>
-          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em]">{users.length}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
+            {users.length}
+          </p>
         </div>
         <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <ShieldCheck className="size-4" />
             Active accounts
           </div>
-          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em]">{activeUserCount}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
+            {activeUserCount}
+          </p>
         </div>
         <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -272,7 +312,8 @@ export function AdminUsersPanel() {
             </div>
           ) : users.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-muted/25 px-4 py-10 text-center text-sm text-muted-foreground">
-              No accounts have been saved into <span className="font-medium text-foreground">PubUser</span> yet.
+              No accounts have been saved into{" "}
+              <span className="font-medium text-foreground">PubUser</span> yet.
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-border">
@@ -284,17 +325,25 @@ export function AdminUsersPanel() {
                     <th className="w-[21%] px-3 py-3 font-semibold">User</th>
                     <th className="w-[25%] px-3 py-3 font-semibold">Email</th>
                     <th className="w-[13%] px-3 py-3 font-semibold">Mobile</th>
-                    <th className="w-[8%] px-3 py-3 font-semibold">Created</th>
-                    <th className="w-[15%] px-3 py-3 text-right font-semibold">Actions</th>
+                    <th className="w-[8%] px-3 py-3 font-semibold">ID</th>
+                    <th className="w-[15%] px-3 py-3 text-right font-semibold">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => {
-                    const isSelf = user.auth_user_id === currentAdminUserId
-                    const nextStatus = user.account_status === "inactive" ? "active" : "inactive"
+                    const isSelf = user.auth_user_id === currentAdminUserId;
+                    const nextStatus =
+                      user.account_status === "inactive"
+                        ? "active"
+                        : "inactive";
 
                     return (
-                      <tr key={user.auth_user_id} className="border-t border-border">
+                      <tr
+                        key={user.auth_user_id}
+                        className="border-t border-border"
+                      >
                         <td className="px-3 py-4 align-top">
                           <StatusBadge status={user.account_status} />
                         </td>
@@ -302,9 +351,8 @@ export function AdminUsersPanel() {
                           {user.role ?? "user"}
                         </td>
                         <td className="px-3 py-4 align-top">
-                          <div className="break-words font-medium text-foreground">{getUserLabel(user)}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {user.DisplayName || user.FName || user.Mname || user.LName ? "Saved profile details" : "No name saved yet"}
+                          <div className="break-words font-medium text-foreground">
+                            {getUserLabel(user)}
                           </div>
                         </td>
                         <td className="break-all px-3 py-4 align-top text-sm text-muted-foreground">
@@ -314,7 +362,7 @@ export function AdminUsersPanel() {
                           {user.MobileNum ?? "Not set"}
                         </td>
                         <td className="px-3 py-4 align-top text-sm text-muted-foreground">
-                          {user.PUser_id ?? "No id"}
+                          {user.PUser_id ?? "No ID"}
                         </td>
                         <td className="px-3 py-4 align-top">
                           <div className="flex flex-col items-stretch justify-end gap-2 min-[1180px]:flex-row min-[1180px]:items-center">
@@ -330,14 +378,22 @@ export function AdminUsersPanel() {
                             </Button>
                             <Button
                               type="button"
-                              variant={nextStatus === "inactive" ? "destructive" : "outline"}
+                              variant={
+                                nextStatus === "inactive"
+                                  ? "destructive"
+                                  : "outline"
+                              }
                               size="sm"
                               className="w-full min-[1180px]:w-auto"
                               disabled={
                                 statusUserId === user.auth_user_id ||
                                 (isSelf && nextStatus === "inactive")
                               }
-                              title={isSelf && nextStatus === "inactive" ? "Admins cannot deactivate their own account." : undefined}
+                              title={
+                                isSelf && nextStatus === "inactive"
+                                  ? "Admins cannot deactivate their own account."
+                                  : undefined
+                              }
                               onClick={() => setStatusTarget(user)}
                             >
                               {statusUserId === user.auth_user_id ? (
@@ -347,12 +403,14 @@ export function AdminUsersPanel() {
                               ) : (
                                 <RotateCcw className="size-3.5" />
                               )}
-                              {nextStatus === "inactive" ? "Deactivate" : "Reactivate"}
+                              {nextStatus === "inactive"
+                                ? "Deactivate"
+                                : "Reactivate"}
                             </Button>
                           </div>
                         </td>
                       </tr>
-                    )
+                    );
                   })}
                 </tbody>
               </table>
@@ -419,14 +477,27 @@ export function AdminUsersPanel() {
                       <td className="px-4 py-4 align-top">
                         <div className="space-y-2">
                           {(log.changed_fields ?? []).map((field) => (
-                            <div key={`${log.aud_id}-${field}`} className="rounded-xl bg-muted/35 px-3 py-2">
+                            <div
+                              key={`${log.aud_id}-${field}`}
+                              className="rounded-xl bg-muted/35 px-3 py-2"
+                            >
                               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                 {field}
                               </div>
                               <div className="mt-1 text-sm text-foreground">
-                                <span className="text-muted-foreground">{log.old_values?.[field as keyof AuditValues] ?? "Empty"}</span>
-                                <span className="px-2 text-muted-foreground">to</span>
-                                <span>{log.new_values?.[field as keyof AuditValues] ?? "Empty"}</span>
+                                <span className="text-muted-foreground">
+                                  {log.old_values?.[
+                                    field as keyof AuditValues
+                                  ] ?? "Empty"}
+                                </span>
+                                <span className="px-2 text-muted-foreground">
+                                  to
+                                </span>
+                                <span>
+                                  {log.new_values?.[
+                                    field as keyof AuditValues
+                                  ] ?? "Empty"}
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -523,18 +594,23 @@ export function AdminUsersPanel() {
         user={editingUser}
         isSubmitting={isSubmittingUser}
         onOpenChange={(open) => {
-          if (!open) setEditingUser(null)
+          if (!open) setEditingUser(null);
         }}
         onSubmit={handleUpdateUser}
       />
 
-      <Dialog open={Boolean(statusTarget)} onOpenChange={(open) => {
-        if (!open) setStatusTarget(null)
-      }}>
+      <Dialog
+        open={Boolean(statusTarget)}
+        onOpenChange={(open) => {
+          if (!open) setStatusTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {statusTarget?.account_status === "inactive" ? "Reactivate account?" : "Deactivate account?"}
+              {statusTarget?.account_status === "inactive"
+                ? "Reactivate account?"
+                : "Deactivate account?"}
             </DialogTitle>
             <DialogDescription>
               {statusTarget?.account_status === "inactive"
@@ -543,8 +619,12 @@ export function AdminUsersPanel() {
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
-            <div className="font-medium text-foreground">{statusTarget ? getUserLabel(statusTarget) : "Selected account"}</div>
-            <div className="mt-1 text-muted-foreground">{statusTarget?.Email ?? "No email"}</div>
+            <div className="font-medium text-foreground">
+              {statusTarget ? getUserLabel(statusTarget) : "Selected account"}
+            </div>
+            <div className="mt-1 text-muted-foreground">
+              {statusTarget?.Email ?? "No email"}
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -557,10 +637,14 @@ export function AdminUsersPanel() {
             </Button>
             <Button
               type="button"
-              variant={statusTarget?.account_status === "inactive" ? "default" : "destructive"}
+              variant={
+                statusTarget?.account_status === "inactive"
+                  ? "default"
+                  : "destructive"
+              }
               disabled={Boolean(statusUserId)}
               onClick={() => {
-                void handleConfirmStatusChange()
+                void handleConfirmStatusChange();
               }}
             >
               {statusUserId ? (
@@ -584,5 +668,5 @@ export function AdminUsersPanel() {
         </DialogContent>
       </Dialog>
     </section>
-  )
+  );
 }

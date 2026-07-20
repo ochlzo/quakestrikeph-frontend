@@ -20,19 +20,11 @@ export const POST = (async ({ request }) => {
       await readJsonBody(request),
     );
 
-    if (validation.error) {
+    if (validation.error !== undefined) {
       return jsonResponse({ error: validation.error }, 400);
     }
 
-    const input = validation.value || {
-      email: "",
-      password: "",
-      displayName: "",
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      mobileNumber: "",
-    };
+    const input = validation.value;
     const { data: authData, error: createError } =
       await adminClient.auth.admin.createUser({
         email: input.email,

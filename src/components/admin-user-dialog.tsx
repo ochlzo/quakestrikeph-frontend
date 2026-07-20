@@ -98,7 +98,7 @@ export function AdminUserDialog({
       ? validateAdminCreateUserInput(form)
       : validateAdminUpdateUserInput(form)
 
-    if (validation.error) {
+    if (validation.error !== undefined) {
       setError(validation.error)
       return
     }
