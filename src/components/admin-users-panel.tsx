@@ -24,7 +24,7 @@ import {
   type PasswordResetLogRow,
   type PubUserAuditRow,
 } from "@/data/admin-users"
-import { supabase } from "@/db/supabase"
+import { getCurrentAppSession } from "@/lib/app-session"
 import type { AdminUserProfileInput } from "@/lib/admin-user-validation"
 import { cn } from "@/lib/utils"
 
@@ -92,8 +92,8 @@ export function AdminUsersPanel() {
     setIsLoadingAudit(true)
     setIsLoadingResetLogs(true)
 
-    const [authResponse, dashboard] = await Promise.all([
-      supabase.auth.getUser(),
+    const [session, dashboard] = await Promise.all([
+      getCurrentAppSession(),
       getAdminDashboardData(),
     ])
 
@@ -101,7 +101,7 @@ export function AdminUsersPanel() {
       return
     }
 
-    setCurrentAdminUserId(authResponse.data.user?.id ?? null)
+    setCurrentAdminUserId(session.user?.id ?? null)
 
     if (dashboard.users.error) {
       setUsers([])

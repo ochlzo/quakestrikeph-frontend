@@ -18,6 +18,7 @@ export type PubUserProfile = AlertPreferences & {
   PUser_id: number | null;
   auth_user_id: string | null;
   role: string | null;
+  account_status: "active" | "inactive" | null;
   Email: string | null;
   DisplayName: string | null;
   FName: string | null;
@@ -121,8 +122,22 @@ async function getPubUserRowByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email);
   const { data, error } = await supabase
     .from("PubUser")
-    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
+    .select('PUser_id, auth_user_id, role, account_status, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
     .ilike("Email", normalizedEmail)
+    .maybeSingle<PubUserProfile>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+export async function getPubUserProfileByAuthUserId(authUserId: string) {
+  const { data, error } = await supabase
+    .from("PubUser")
+    .select('PUser_id, auth_user_id, role, account_status, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
+    .eq("auth_user_id", authUserId)
     .maybeSingle<PubUserProfile>();
 
   if (error) {
@@ -139,9 +154,29 @@ export async function ensurePubUserRow(user: User) {
   }
 
   const normalizedEmail = normalizeEmail(email);
-  const existing = await getPubUserRowByEmail(normalizedEmail);
+  const existing = await getPubUserProfileByAuthUserId(user.id);
   if (existing) {
     return existing;
+  }
+
+  const existingByEmail = await getPubUserRowByEmail(normalizedEmail);
+  if (existingByEmail) {
+    if (!existingByEmail.auth_user_id && existingByEmail.PUser_id) {
+      const { data, error } = await supabase
+        .from("PubUser")
+        .update({ auth_user_id: user.id })
+        .eq("PUser_id", existingByEmail.PUser_id)
+        .select('PUser_id, auth_user_id, role, account_status, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
+        .single<PubUserProfile>();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    }
+
+    return existingByEmail;
   }
 
   const nameParts = getNameParts(user);
@@ -156,7 +191,7 @@ export async function ensurePubUserRow(user: User) {
       ...nameParts,
       MobileNum: null,
     })
-    .select('PUser_id, auth_user_id, role, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
+    .select('PUser_id, auth_user_id, role, account_status, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
     .maybeSingle<PubUserProfile>();
 
   if (error) {
@@ -216,9 +251,11 @@ export async function updatePubUserProfile(
     MobileNum: sanitizePhoneInput(mobileNumberResult.value),
   };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("PubUser")
-    .upsert(payload, { onConflict: "auth_user_id" });
+    .upsert(payload, { onConflict: "auth_user_id" })
+    .select('PUser_id, auth_user_id, role, account_status, "Email", "DisplayName", "FName", "Mname", "LName", "MobileNum", alerts_on, phivolcs_only, near_pins_only')
+    .single<PubUserProfile>();
 
   if (error) {
     if (isDuplicateMobileNumberError(error)) {
@@ -227,6 +264,8 @@ export async function updatePubUserProfile(
 
     throw error;
   }
+
+  return data;
 }
 
 export function getFavoriteLocationLabel(favorite: FavoriteLocationRow) {

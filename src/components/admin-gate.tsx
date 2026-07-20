@@ -3,8 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle, ShieldAlert } from "lucide-react";
 
-import { supabase } from "@/db/supabase";
-import { ensurePubUserRow } from "@/lib/pubuser";
+import { getCurrentAppSession } from "@/lib/app-session";
 
 export function AdminGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<"loading" | "allowed" | "denied">("loading");
@@ -13,27 +12,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
     let active = true;
 
     async function loadRole() {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData.user;
+      const session = await getCurrentAppSession({
+        force: true,
+        signOutInactive: true,
+      });
 
-      if (!user) {
-        if (active) setStatus("denied");
-        return;
-      }
-
-      try {
-        await ensurePubUserRow(user);
-      } catch {
-        // Continue with the auth lookup; the row may already exist or be retried elsewhere.
-      }
-
-      const { data: profile, error } = await supabase
-        .from("PubUser")
-        .select('role, account_status')
-        .eq("auth_user_id", user.id)
-        .maybeSingle<{ role: string | null; account_status: string | null }>();
-
-      if (error || profile?.role !== "admin" || profile.account_status !== "active") {
+      if (!session.isAdmin) {
         if (active) setStatus("denied");
         return;
       }

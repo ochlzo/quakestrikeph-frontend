@@ -5,6 +5,7 @@ import { LoaderCircle, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/db/supabase";
+import { clearAppSessionCache } from "@/lib/app-session";
 
 export function AdminLogoutButton() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -13,6 +14,7 @@ export function AdminLogoutButton() {
     setIsLoggingOut(true);
 
     try {
+      clearAppSessionCache();
       await supabase.auth.signOut();
       window.location.assign("/login");
     } finally {

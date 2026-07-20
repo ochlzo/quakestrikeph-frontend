@@ -37,9 +37,12 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/db/supabase";
 import {
-  ensurePubUserRow,
+  cacheAppSessionProfile,
+  clearAppSessionCache,
+  getCurrentAppSession,
+} from "@/lib/app-session";
+import {
   getPubUserDisplayName,
-  getPubUserProfile,
   updatePubUserProfile,
   type AlertPreferences,
   type PubUserProfile,
@@ -68,15 +71,6 @@ type FilteredEventState = {
   hasMore: boolean;
   atLimit: boolean;
   loadingMore: boolean;
-};
-
-type ProfileRow = {
-  Email: string | null;
-  DisplayName: string | null;
-  FName: string | null;
-  Mname: string | null;
-  LName: string | null;
-  MobileNum: string | null;
 };
 
 const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
@@ -142,7 +136,7 @@ function getProfileFormValues(profile: PubUserProfile | null) {
 
 function AccountCenter() {
   const [user, setUser] = React.useState<User | null>(null);
-  const [profile, setProfile] = React.useState<ProfileRow | null>(null);
+  const [profile, setProfile] = React.useState<PubUserProfile | null>(null);
   const [firstName, setFirstName] = React.useState("");
   const [middleName, setMiddleName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
@@ -167,44 +161,37 @@ function AccountCenter() {
   React.useEffect(() => {
     let active = true;
 
-    async function loadUser() {
+    function resetAccountState() {
+      setUser(null);
+      setProfile(null);
+      setFirstName("");
+      setMiddleName("");
+      setLastName("");
+      setDisplayNameInput("");
+      setMobileNum("");
+      setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
+      setIsEditingProfile(false);
+    }
+
+    async function loadUser(force = false) {
       try {
-        const { data } = await supabase.auth.getUser();
-        const currentUser = data.user ?? null;
+        const session = await getCurrentAppSession({
+          force,
+          signOutInactive: true,
+        });
+        const currentUser = session.user;
 
         if (!currentUser) {
           if (active) {
-            setUser(null);
-            setProfile(null);
-            setFirstName("");
-            setMiddleName("");
-            setLastName("");
-            setDisplayNameInput("");
-            setMobileNum("");
-            setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
-            setIsEditingProfile(false);
+            resetAccountState();
           }
           return;
         }
 
-        if (active) {
-          setUser(currentUser);
-        }
-
-        try {
-          await ensurePubUserRow(currentUser);
-        } catch {
-          // If the sync fails, the next protected page can retry.
-        }
-
-        let profileData: PubUserProfile | null = null;
-        try {
-          profileData = await getPubUserProfile(currentUser.email ?? "");
-        } catch {
-          profileData = null;
-        }
+        const profileData = session.profile;
 
         if (!active) return;
+        setUser(currentUser);
         setProfile(profileData);
         const formValues = getProfileFormValues(profileData);
         setFirstName(formValues.firstName);
@@ -220,15 +207,7 @@ function AccountCenter() {
         setIsEditingProfile(false);
       } catch {
         if (active) {
-          setUser(null);
-          setProfile(null);
-          setFirstName("");
-          setMiddleName("");
-          setLastName("");
-          setDisplayNameInput("");
-          setMobileNum("");
-          setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
-          setIsEditingProfile(false);
+          resetAccountState();
         }
       } finally {
         if (active) {
@@ -239,21 +218,14 @@ function AccountCenter() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        clearAppSessionCache();
         if (!session?.user) {
-          setUser(null);
-          setProfile(null);
-          setFirstName("");
-          setMiddleName("");
-          setLastName("");
-          setDisplayNameInput("");
-          setMobileNum("");
-          setAlertPreferences(DEFAULT_ALERT_PREFERENCES);
-          setIsEditingProfile(false);
+          resetAccountState();
           setIsLoading(false);
           return;
         }
 
-        void loadUser();
+        void loadUser(true);
       },
     );
 
@@ -290,6 +262,7 @@ function AccountCenter() {
 
   async function handleLogout() {
     setIsLoggingOut(true);
+    clearAppSessionCache();
     await supabase.auth.signOut();
     window.location.assign("/login?redirectTo=/");
   }
@@ -310,15 +283,15 @@ function AccountCenter() {
     setIsSavingProfile(true);
 
     try {
-      await updatePubUserProfile(user.email, {
+      const updatedProfile = await updatePubUserProfile(user.email, {
         FName: firstName,
         Mname: middleName,
         LName: lastName,
         DisplayName: displayNameInput,
         MobileNum: mobileNumberResult.value,
       });
-      const updatedProfile = await getPubUserProfile(user.email);
       setProfile(updatedProfile);
+      cacheAppSessionProfile(updatedProfile);
       const formValues = getProfileFormValues(updatedProfile);
       setFirstName(formValues.firstName);
       setMiddleName(formValues.middleName);
@@ -345,7 +318,7 @@ function AccountCenter() {
   }
 
   function cancelProfileEdit() {
-    const formValues = getProfileFormValues(profile as PubUserProfile);
+    const formValues = getProfileFormValues(profile);
     setFirstName(formValues.firstName);
     setMiddleName(formValues.middleName);
     setLastName(formValues.lastName);
@@ -382,10 +355,9 @@ function AccountCenter() {
   const avatarUrl = getAvatarUrl(user);
   const email = profile?.Email ?? user.email ?? "";
   const accountDisplayName = profile
-    ? getPubUserDisplayName(profile as PubUserProfile)
+    ? getPubUserDisplayName(profile)
     : getDisplayName(user);
-  const isAdmin =
-    user.app_metadata?.role === "admin" || user.user_metadata?.role === "admin";
+  const isAdmin = profile?.account_status !== "inactive" && profile?.role === "admin";
   const isProfileComplete = Boolean(
     profile?.DisplayName?.trim() ||
     profile?.FName?.trim() ||
@@ -736,7 +708,14 @@ function AccountCenter() {
         open={isAlertPreferencesOpen}
         initialValue={alertPreferences}
         onOpenChange={setIsAlertPreferencesOpen}
-        onSaved={setAlertPreferences}
+        onSaved={(preferences) => {
+          setAlertPreferences(preferences);
+          if (profile) {
+            const nextProfile = { ...profile, ...preferences };
+            setProfile(nextProfile);
+            cacheAppSessionProfile(nextProfile);
+          }
+        }}
       />
     </div>
   );

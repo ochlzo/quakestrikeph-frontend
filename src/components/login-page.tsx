@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/db/supabase";
+import { clearAppSessionCache } from "@/lib/app-session";
 import {
   sanitizeEmailInput,
   sanitizeOtpInput,
@@ -32,7 +34,7 @@ import {
   validateOtpInput,
   validatePasswordInput,
 } from "@/lib/input-security";
-import { ensurePubUserRow } from "@/lib/pubuser";
+import { ensurePubUserRow, type PubUserProfile } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
 
 type LoginPageProps = {
@@ -193,19 +195,36 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const skipNextAuthRedirectRef = useRef(false);
 
-  async function getPostLoginRedirect(userId: string) {
-    const { data, error } = await supabase
-      .from("PubUser")
-      .select("role, account_status")
-      .eq("auth_user_id", userId)
-      .maybeSingle<{ role: string | null; account_status: string | null }>();
+  async function syncSignedInProfile(user: User) {
+    try {
+      return await ensurePubUserRow(user);
+    } catch {
+      return null;
+    }
+  }
 
-    if (!error && data?.account_status === "inactive") {
+  async function getPostLoginRedirect(userId: string, profile?: PubUserProfile | null) {
+    let account = profile ?? null;
+
+    if (!account) {
+      const { data, error } = await supabase
+        .from("PubUser")
+        .select("role, account_status")
+        .eq("auth_user_id", userId)
+        .maybeSingle<{ role: string | null; account_status: string | null }>();
+
+      if (!error) {
+        account = data as PubUserProfile | null;
+      }
+    }
+
+    if (account?.account_status === "inactive") {
+      clearAppSessionCache();
       await supabase.auth.signOut();
       return null;
     }
 
-    if (!error && data?.role === "admin") {
+    if (account?.role === "admin") {
       return "/admin";
     }
 
@@ -215,6 +234,7 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        clearAppSessionCache();
         if (!session?.user) {
           return;
         }
@@ -224,13 +244,9 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
         }
 
         void (async () => {
-          try {
-            await ensurePubUserRow(session.user);
-          } catch {
-            // The dashboard/account center retries the sync if needed.
-          }
+          const profile = await syncSignedInProfile(session.user);
 
-          const target = await getPostLoginRedirect(session.user.id);
+          const target = await getPostLoginRedirect(session.user.id, profile);
           if (!target) {
             setStatus({
               kind: "error",
@@ -308,16 +324,12 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
         return;
       }
 
-      if (data.session) {
-        try {
-          await ensurePubUserRow(data.session.user);
-        } catch {
-          // The next authenticated page will retry the sync.
-        }
-      }
+      const profile = data.session?.user
+        ? await syncSignedInProfile(data.session.user)
+        : null;
 
       const target = data.session?.user
-        ? await getPostLoginRedirect(data.session.user.id)
+        ? await getPostLoginRedirect(data.session.user.id, profile)
         : redirectTo;
       if (!target) {
         setStatus({
@@ -379,16 +391,12 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       return;
     }
 
-    if (data.session?.user) {
-      try {
-        await ensurePubUserRow(data.session.user);
-      } catch {
-        // The dashboard/account center retries the sync if needed.
-      }
-    }
+    const profile = data.session?.user
+      ? await syncSignedInProfile(data.session.user)
+      : null;
 
     const target = data.session?.user
-      ? await getPostLoginRedirect(data.session.user.id)
+      ? await getPostLoginRedirect(data.session.user.id, profile)
       : redirectTo;
     if (!target) {
       setStatus({
@@ -509,13 +517,9 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       return;
     }
 
-    if (data.session?.user) {
-      try {
-        await ensurePubUserRow(data.session.user);
-      } catch {
-        // The dashboard/account center retries the sync if needed.
-      }
-    }
+    const profile = data.session?.user
+      ? await syncSignedInProfile(data.session.user)
+      : null;
 
     setIsVerifyingSignUp(false);
     setStatus({
@@ -523,7 +527,7 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       message: "Account created. Redirecting to the dashboard.",
     });
     const target = data.session?.user
-      ? await getPostLoginRedirect(data.session.user.id)
+      ? await getPostLoginRedirect(data.session.user.id, profile)
       : redirectTo;
     if (!target) {
       setStatus({
