@@ -2,13 +2,14 @@
 import Layout from "../layouts/Layout.astro";
 import { AdminGate } from "../components/admin-gate";
 import { AdminLogoutButton } from "../components/admin-logout-button";
+import { AdminPinsPanel } from "../components/admin-pins-panel";
 import { AdminUsersPanel } from "../components/admin-users-panel";
 ---
 
 <Layout>
   <AdminGate client:load>
     <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(248,113,113,0.16),_transparent_28%),linear-gradient(180deg,_var(--background),_color-mix(in_oklch,var(--background),var(--foreground)_2%))] text-foreground">
-      <section class="mx-auto min-h-screen max-w-6xl px-6 py-10 sm:px-10">
+      <section class="mx-auto min-h-screen w-full max-w-7xl px-6 py-10 sm:px-10">
         <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -27,7 +28,10 @@ import { AdminUsersPanel } from "../components/admin-users-panel";
           <AdminLogoutButton client:load />
         </div>
 
-        <AdminUsersPanel client:load />
+        <div class="space-y-6">
+          <AdminUsersPanel client:load />
+          <AdminPinsPanel client:load />
+        </div>
       </section>
     </main>
   </AdminGate>

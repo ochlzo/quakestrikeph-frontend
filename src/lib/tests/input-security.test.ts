@@ -2,6 +2,15 @@ import { describe, it } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  validateAdminPinId,
+  validateAdminPinInput,
+} from "../admin-pin-validation.ts"
+import {
+  validateAccountStatusInput,
+  validateAdminCreateUserInput,
+  validateAdminUpdateUserInput,
+} from "../admin-user-validation.ts"
+import {
   sanitizeDecimalInput,
   sanitizeEmailInput,
   sanitizeMagnitudeRangeInput,
@@ -41,5 +50,46 @@ describe("input security helpers", () => {
     assert.equal(sanitizeSearchInput("  Cebu\u0000\nCity  "), " Cebu City ")
     assert.equal(sanitizeDecimalInput("4..5abc"), "4.5")
     assert.equal(sanitizeMagnitudeRangeInput("1<script>-2, 3-4"), "1-2, 3-4")
+  })
+
+  it("validates admin user management input", () => {
+    const createResult = validateAdminCreateUserInput({
+      email: " ADMIN@Example.COM ",
+      password: "valid-password",
+      displayName: "juAN dela-cruz",
+      firstName: "juAN",
+      middleName: "",
+      lastName: "dela-cruz",
+      mobileNumber: "0912 abc 345 6789",
+    })
+
+    assert.equal(createResult.error, undefined)
+    assert.equal(createResult.value.email, "admin@example.com")
+    assert.equal(createResult.value.displayName, "Juan Dela-Cruz")
+    assert.equal(createResult.value.middleName, null)
+    assert.equal(createResult.value.mobileNumber, "09123456789")
+    assert.equal(validateAdminCreateUserInput({ email: "admin@example.com", password: "short" }).error, "Password must be at least 8 characters.")
+    assert.equal(validateAdminUpdateUserInput({ email: "admin@example.com", password: "" }).error, undefined)
+    assert.equal(validateAccountStatusInput({ accountStatus: "inactive" }).value.accountStatus, "inactive")
+    assert.equal(validateAccountStatusInput({ accountStatus: "deleted" }).error, "Account status must be active or inactive.")
+  })
+
+  it("validates admin saved pin management input", () => {
+    const pinResult = validateAdminPinInput({
+      authUserId: "123e4567-e89b-12d3-a456-426614174000",
+      favoriteLabel: "  Manila Office\u0000 ",
+      favoriteKind: "map_pin",
+      latitude: "14.5995",
+      longitude: "120.9842",
+    })
+
+    assert.equal(pinResult.error, undefined)
+    assert.equal(pinResult.value.favoriteLabel, "Manila Office")
+    assert.equal(pinResult.value.latitude, 14.5995)
+    assert.equal(validateAdminPinInput({ authUserId: "bad", favoriteLabel: "Home", favoriteKind: "map_pin", latitude: 1, longitude: 2 }).error, "Choose a valid user for this pinned location.")
+    assert.equal(validateAdminPinInput({ authUserId: "123e4567-e89b-12d3-a456-426614174000", favoriteLabel: "Home", favoriteKind: "map_pin" }).error, "Map pins need both latitude and longitude.")
+    assert.equal(validateAdminPinInput({ authUserId: "123e4567-e89b-12d3-a456-426614174000", favoriteLabel: "Home", favoriteKind: "location", latitude: 14 }).error, "Latitude and longitude must be provided together.")
+    assert.equal(validateAdminPinId("42").value, 42)
+    assert.equal(validateAdminPinId("0").error, "Choose a valid pinned location.")
   })
 })

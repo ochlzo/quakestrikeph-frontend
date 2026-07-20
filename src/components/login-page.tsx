@@ -130,6 +130,24 @@ function isEmailDeliveryError(error: unknown) {
   );
 }
 
+function isAccountInactiveError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const authError = error as SupabaseAuthError;
+  const code = String(authError.code ?? "").toLowerCase();
+  const message = String(authError.message ?? "").toLowerCase();
+
+  return (
+    code === "user_banned" ||
+    code.includes("banned") ||
+    message.includes("banned") ||
+    message.includes("deactivated") ||
+    message.includes("inactive")
+  );
+}
+
 function GoogleMark({ className }: { className?: string }) {
   return (
     <svg
@@ -178,9 +196,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   async function getPostLoginRedirect(userId: string) {
     const { data, error } = await supabase
       .from("PubUser")
-      .select("role")
+      .select("role, account_status")
       .eq("auth_user_id", userId)
-      .maybeSingle<{ role: string | null }>();
+      .maybeSingle<{ role: string | null; account_status: string | null }>();
+
+    if (!error && data?.account_status === "inactive") {
+      await supabase.auth.signOut();
+      return null;
+    }
 
     if (!error && data?.role === "admin") {
       return "/admin";
@@ -208,6 +231,13 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
           }
 
           const target = await getPostLoginRedirect(session.user.id);
+          if (!target) {
+            setStatus({
+              kind: "error",
+              message: "This account is inactive. Contact an admin to reactivate it.",
+            });
+            return;
+          }
           window.location.assign(buildRedirectUrl(target));
         })();
       },
@@ -248,6 +278,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       setIsSigningIn(false);
 
       if (error) {
+        if (isAccountInactiveError(error)) {
+          setStatus({
+            kind: "error",
+            message: "This account is inactive. Contact an admin to reactivate it.",
+          });
+          return;
+        }
+
         if (isEmailNotConfirmedError(error)) {
           setNeedsEmailConfirmation(true);
           const resendSucceeded = await handleResendConfirmation({
@@ -281,6 +319,13 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       const target = data.session?.user
         ? await getPostLoginRedirect(data.session.user.id)
         : redirectTo;
+      if (!target) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
       window.location.assign(buildRedirectUrl(target));
       return;
     }
@@ -316,6 +361,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     setIsSendingLink(false);
 
     if (error) {
+      if (isAccountInactiveError(error)) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
+
       setStatus({
         kind: "error",
         message: getErrorMessage(
@@ -337,6 +390,13 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     const target = data.session?.user
       ? await getPostLoginRedirect(data.session.user.id)
       : redirectTo;
+    if (!target) {
+      setStatus({
+        kind: "error",
+        message: "This account is inactive. Contact an admin to reactivate it.",
+      });
+      return;
+    }
     window.location.assign(buildRedirectUrl(target));
   }
 
@@ -465,6 +525,13 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     const target = data.session?.user
       ? await getPostLoginRedirect(data.session.user.id)
       : redirectTo;
+    if (!target) {
+      setStatus({
+        kind: "error",
+        message: "This account is inactive. Contact an admin to reactivate it.",
+      });
+      return;
+    }
     window.location.assign(buildRedirectUrl(target));
   }
 
@@ -562,6 +629,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     setIsSendingLink(false);
 
     if (error) {
+      if (isAccountInactiveError(error)) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
+
       setStatus({ kind: "error", message: error.message });
       return;
     }

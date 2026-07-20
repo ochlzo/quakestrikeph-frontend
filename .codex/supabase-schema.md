@@ -1,7 +1,7 @@
 # Supabase schema context
 
 Context only — not a runnable migration. Live `public` schema for Supabase project
-`yrqraepkwrlxajyonwxj`, checked through the repo-scoped MCP on 2026-07-19.
+`yrqraepkwrlxajyonwxj`, checked through the repo-scoped MCP on 2026-07-20.
 
 ## Tables
 
@@ -25,11 +25,12 @@ Context only — not a runnable migration. Live `public` schema for Supabase pro
   (nullable FK), `status` (`queued|running|completed|failed`),
   `attempt_count`, `error_message`, `started_at`, `finished_at`, `created_at`.
 - `PubUser` — `PUser_id` (PK), `auth_user_id` (unique), `role`
-  (`user|admin`), `Email`, `DisplayName`, `FName`, `Mname`, `LName`,
-  `MobileNum`, `alerts_on`, `phivolcs_only`, `near_pins_only`, plus legacy
-  nullable columns `Password` and `Fave_id`. Alert preferences are non-null
-  booleans defaulting to `false`; dependent preferences must remain `false`
-  while `alerts_on` is `false`.
+  (`user|admin`), `account_status` (`active|inactive`, default `active`),
+  `Email`, `DisplayName`, `FName`, `Mname`, `LName`, `MobileNum`, `alerts_on`,
+  `phivolcs_only`, `near_pins_only`, plus legacy nullable columns `Password`
+  and `Fave_id`. Alert preferences are non-null booleans defaulting to
+  `false`; dependent preferences must remain `false` while `alerts_on` is
+  `false`.
   `MobileNum`, when present, must match `09` followed by nine digits.
 - `PubUserAuditLog` — `aud_id` (PK), `profile_puser_id`,
   `profile_auth_user_id`, `profile_email`, `action` (`insert|update`),
@@ -127,18 +128,28 @@ direct table reads.
 - `get_portal_audit_log_page(query_text text = null, actions text[] = null,
   date_from date = null, date_to date = null, result_limit integer = 50,
   result_offset integer = 0)`.
+- `get_admin_saved_pins()` — security definer; active-admin-only saved pin
+  listing with owner email/name resolved from `PubUser` and `auth.users`.
+- `get_admin_pin_users()` — security definer; active-admin-only owner list for
+  pin assignment, using auth email as a fallback when profile data is partial.
 
-All three return JSONB and are security invoker functions.
+The portal page RPCs return JSONB and are security invoker functions. The
+admin pin RPCs return table rows and enforce active-admin access internally.
 
 ## Supporting functions and triggers
 
 - `handle_new_pubuser()` creates or synchronizes `PubUser` rows after an
-  `auth.users` insert and after `last_sign_in_at` changes.
+  `auth.users` insert and after `last_sign_in_at`, email, or ban-status
+  changes. Supabase Auth bans map to `PubUser.account_status = 'inactive'`.
 - `normalize_pubuser_profile_row()` normalizes profile fields before insert or
   profile-field updates; `audit_pubuser_profile_changes()` records those
   inserts/updates afterward.
+- `prevent_pubuser_managed_field_changes()` blocks browser-authenticated
+  clients from directly changing `role` or `account_status`; server-side admin
+  routes perform those managed changes with the Supabase admin key.
 - Helpers: `normalize_pubuser_name(text)`, `normalize_pubuser_phone(text)`,
-  `pubuser_profile_snapshot(PubUser)`, and `is_admin_user()`.
+  `pubuser_profile_snapshot(PubUser)`, and `is_admin_user()`; admin status
+  checks require both `role = 'admin'` and `account_status = 'active'`.
 - `rls_auto_enable()` is an event-trigger function that enables RLS for newly
   created public tables.
 
@@ -161,9 +172,11 @@ RLS is enabled on every public table.
   may select all rows through the `public map reads ...` policies. No browser
   mutation policy exists.
 - `PubUser`: authenticated users may select, insert, and update only their own
-  row. Insert/update also require `Email` to match the JWT email.
+  row. Insert/update also require `Email` to match the JWT email. Browser
+  clients cannot directly change `role` or `account_status`.
 - `SavedPins`: authenticated users may select, insert, and delete only their
-  own rows. There is no update policy.
+  own rows. Active admins may select, insert, update, and delete saved pins for
+  any user through `is_admin_user()` policies.
 - `PubUserAuditLog`: authenticated users may currently select all rows.
 - `PasswordResetLog`: authenticated users may currently select all rows and
   insert a row when `reset_email` matches the JWT email.

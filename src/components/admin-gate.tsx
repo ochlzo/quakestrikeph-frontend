@@ -29,11 +29,11 @@ export function AdminGate({ children }: { children: ReactNode }) {
 
       const { data: profile, error } = await supabase
         .from("PubUser")
-        .select('role')
+        .select('role, account_status')
         .eq("auth_user_id", user.id)
-        .maybeSingle<{ role: string | null }>();
+        .maybeSingle<{ role: string | null; account_status: string | null }>();
 
-      if (error || profile?.role !== "admin") {
+      if (error || profile?.role !== "admin" || profile.account_status !== "active") {
         if (active) setStatus("denied");
         return;
       }
