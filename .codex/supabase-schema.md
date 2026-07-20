@@ -1,7 +1,7 @@
 # Supabase schema context
 
 Context only — not a runnable migration. Live `public` schema for Supabase project
-`yrqraepkwrlxajyonwxj`, checked through the repo-scoped MCP on 2026-07-20.
+`yrqraepkwrlxajyonwxj`, checked through the repo-scoped MCP on 2026-07-21.
 
 ## Tables
 
@@ -172,14 +172,16 @@ RLS is enabled on every public table.
   may select all rows through the `public map reads ...` policies. No browser
   mutation policy exists.
 - `PubUser`: authenticated users may select, insert, and update only their own
-  row. Insert/update also require `Email` to match the JWT email. Browser
-  clients cannot directly change `role` or `account_status`.
+  row; active admins may select all rows. Insert/update also require `Email` to
+  match the JWT email. Browser clients cannot directly change `role` or
+  `account_status`.
 - `SavedPins`: authenticated users may select, insert, and delete only their
   own rows. Active admins may select, insert, update, and delete saved pins for
   any user through `is_admin_user()` policies.
-- `PubUserAuditLog`: authenticated users may currently select all rows.
-- `PasswordResetLog`: authenticated users may currently select all rows and
-  insert a row when `reset_email` matches the JWT email.
+- `PubUserAuditLog`: active admins may select all rows.
+- `PasswordResetLog`: active admins may select reset history. Authenticated
+  users may insert only rows whose `auth_user_id` matches `auth.uid()` and
+  whose `reset_email` matches the JWT email.
 - `ScraperRuns`, `ProcessingJobs`, `operator_profiles`, `forecast_reviews`, and
   `audit_logs`: no RLS policies are currently defined, so browser roles cannot
   access rows despite table-level grants.

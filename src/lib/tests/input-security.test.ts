@@ -7,6 +7,8 @@ import {
   validateAdminUpdateUserInput,
 } from "../admin-user-validation.ts"
 import {
+  PASSWORD_REQUIREMENTS_MESSAGE,
+  getPasswordErrorMessage,
   sanitizeDecimalInput,
   sanitizeEmailInput,
   sanitizeMagnitudeRangeInput,
@@ -29,6 +31,17 @@ describe("input security helpers", () => {
   it("keeps passwords mostly intact while removing null bytes", () => {
     assert.equal(sanitizePasswordInput("  pass word\u0000  "), "  pass word  ")
     assert.equal(validatePasswordInput("short").error, "Password must be at least 8 characters.")
+    assert.equal(
+      getPasswordErrorMessage(
+        {
+          code: "weak_password",
+          message:
+            "Password should contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0123456789, symbols.",
+        },
+        "Unable to save the password.",
+      ),
+      PASSWORD_REQUIREMENTS_MESSAGE,
+    )
   })
 
   it("sanitizes profile and OTP fields", () => {

@@ -5,6 +5,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const NAME_ALLOWED_CHARACTERS = /[^\p{L}\p{M}\s.'-]/gu
 const NAME_WORD_START = /(^|[\s.'-])(\p{L})/gu
 
+export const PASSWORD_REQUIREMENTS_MESSAGE =
+  "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a symbol."
+
 function limitLength(value: string, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength) : value
 }
@@ -53,6 +56,25 @@ export function validatePasswordInput(value: string, minimumLength = 8) {
     return { value: password, error: `Password must be at least ${minimumLength} characters.` }
   }
   return { value: password }
+}
+
+export function getPasswordErrorMessage(error: unknown, fallback: string) {
+  const candidate = error as { code?: unknown; message?: unknown } | null
+  const code = String(candidate?.code ?? "").toLowerCase()
+  const message = typeof error === "string"
+    ? error.trim()
+    : String(candidate?.message ?? "").trim()
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    code === "weak_password" ||
+    normalizedMessage.includes("password should contain at least one character of each") ||
+    normalizedMessage.includes("password should be at least")
+  ) {
+    return PASSWORD_REQUIREMENTS_MESSAGE
+  }
+
+  return message && message !== "{}" ? message : fallback
 }
 
 export function sanitizeOtpInput(value: string) {

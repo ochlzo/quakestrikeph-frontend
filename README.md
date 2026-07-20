@@ -44,3 +44,19 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+## Password recovery configuration
+
+The hosted Supabase project must use a recovery email template containing the
+one-time code, for example:
+
+```html
+<h2>Reset your password</h2>
+<p>Enter this code on the QuakeStrike PH password-reset page:</p>
+<p><strong>{{ .Token }}</strong></p>
+<p>If you did not request this reset, you can ignore this email.</p>
+```
+
+Configure the password-reset request period, email OTP expiration, custom SMTP,
+and password-change notification in Supabase Authentication. These server-side
+settings are authoritative; the frontend resend countdown is only a UI aid.

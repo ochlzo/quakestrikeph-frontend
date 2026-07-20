@@ -44,3 +44,5 @@ supabase/migrations/*
 !supabase/migrations/20260719133051_add_public_forecast_review.sql
 !supabase/migrations/20260719135129_filter_earthquakes_by_phivolcs_review.sql
 !supabase/migrations/20260720170000_filter_operational_earthquake_queries.sql
+!supabase/migrations/20260721090000_harden_password_reset_log.sql
+!supabase/migrations/20260721100000_harden_admin_rbac_policies.sql

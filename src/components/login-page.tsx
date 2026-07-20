@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/db/supabase";
 import { clearAppSessionCache } from "@/lib/app-session";
 import {
+  getPasswordErrorMessage,
   sanitizeEmailInput,
   sanitizeOtpInput,
   sanitizePasswordInput,
@@ -509,7 +510,7 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       setIsVerifyingSignUp(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(
+        message: getPasswordErrorMessage(
           updateError,
           "The account was verified, but the password could not be saved.",
         ),

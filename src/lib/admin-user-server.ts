@@ -1,6 +1,8 @@
 import { getSecret } from "astro:env/server"
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js"
 
+import { getPasswordErrorMessage } from "./input-security.ts"
+
 export type AdminUserRow = {
   PUser_id: number | null
   auth_user_id: string
@@ -198,7 +200,7 @@ export function mapSupabaseError(error: unknown, fallback: string) {
   }
 
   if (status === 400 || code === "weak_password") {
-    return new AdminApiError(400, String(candidate.message || fallback))
+    return new AdminApiError(400, getPasswordErrorMessage(error, fallback))
   }
 
   if (status === 404 || code === "user_not_found") {
