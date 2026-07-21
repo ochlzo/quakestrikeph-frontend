@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/db/supabase";
 import {
+  getPasswordErrorMessage,
   sanitizeEmailInput,
   sanitizeOtpInput,
   sanitizePasswordInput,
@@ -46,8 +47,9 @@ type PasswordResetLogInsert = {
   reset_type: "email_otp";
 };
 
-const OTP_VALIDITY_SECONDS = 3 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
+const RESET_REQUEST_MESSAGE =
+  "If an account exists for that email, a password-reset code has been sent.";
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
@@ -80,33 +82,23 @@ export function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
   const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(
     null,
   );
   const [now, setNow] = useState(() => Date.now());
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
-  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    timerRef.current = window.setInterval(() => {
+    const timer = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
 
-    return () => {
-      if (timerRef.current !== null) {
-        window.clearInterval(timerRef.current);
-      }
-    };
+    return () => window.clearInterval(timer);
   }, []);
 
-  const otpRemainingSeconds = otpExpiresAt
-    ? Math.ceil((otpExpiresAt - now) / 1000)
-    : 0;
   const resendRemainingSeconds = resendAvailableAt
     ? Math.ceil((resendAvailableAt - now) / 1000)
     : 0;
-  const isOtpExpired = otpExpiresAt !== null && otpRemainingSeconds <= 0;
   const canResend = resendAvailableAt === null || resendRemainingSeconds <= 0;
 
   async function handleSendCode(event: FormEvent<HTMLFormElement>) {
@@ -126,12 +118,9 @@ export function ResetPasswordPage() {
     setStatus({ kind: "idle" });
     setIsSendingCode(true);
 
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: emailResult.value,
-      options: {
-        shouldCreateUser: false,
-      },
-    });
+    const { error: otpError } = await supabase.auth.resetPasswordForEmail(
+      emailResult.value,
+    );
 
     setIsSendingCode(false);
 
@@ -147,12 +136,11 @@ export function ResetPasswordPage() {
     }
 
     const startedAt = Date.now();
-    setOtpExpiresAt(startedAt + OTP_VALIDITY_SECONDS * 1000);
     setResendAvailableAt(startedAt + RESEND_COOLDOWN_SECONDS * 1000);
     setStep("verify");
     setStatus({
       kind: "success",
-      message: `We sent a one-time code to your email. It expires in ${formatCountdown(OTP_VALIDITY_SECONDS)}.`,
+      message: RESET_REQUEST_MESSAGE,
     });
 
     return true;
@@ -176,15 +164,6 @@ export function ResetPasswordPage() {
       return;
     }
 
-    if (isOtpExpired) {
-      setStatus({
-        kind: "error",
-        message:
-          "That one-time code has expired. Request a new code and try again.",
-      });
-      return;
-    }
-
     const passwordResult = validatePasswordInput(newPassword);
     if (passwordResult.error) {
       setNewPassword(passwordResult.value);
@@ -195,11 +174,12 @@ export function ResetPasswordPage() {
     setStatus({ kind: "idle" });
     setIsResettingPassword(true);
 
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: emailResult.value,
-      token: otpResult.value,
-      type: "email",
-    });
+    const { data: verifyData, error: verifyError } =
+      await supabase.auth.verifyOtp({
+        email: emailResult.value,
+        token: otpResult.value,
+        type: "recovery",
+      });
 
     if (verifyError) {
       setIsResettingPassword(false);
@@ -217,12 +197,11 @@ export function ResetPasswordPage() {
       password: passwordResult.value,
     });
 
-    setIsResettingPassword(false);
-
     if (updateError) {
+      setIsResettingPassword(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(
+        message: getPasswordErrorMessage(
           updateError,
           "Unable to update the password right now.",
         ),
@@ -230,37 +209,29 @@ export function ResetPasswordPage() {
       return;
     }
 
-    const { data: authData } = await supabase.auth.getUser();
-    const authUser = authData.user;
+    if (verifyData.user) {
+      const resetLog: PasswordResetLogInsert = {
+        auth_user_id: verifyData.user.id,
+        reset_email: emailResult.value,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        reset_type: "email_otp",
+      };
 
-    if (!authUser) {
+      await supabase.from("PasswordResetLog").insert(resetLog);
+    }
+
+    const { error: signOutError } = await supabase.auth.signOut({
+      scope: "global",
+    });
+
+    setIsResettingPassword(false);
+
+    if (signOutError) {
       setStatus({
         kind: "error",
         message:
-          "Password updated, but the signed-in account could not be confirmed for logging.",
-      });
-      return;
-    }
-
-    const resetLog: PasswordResetLogInsert = {
-      auth_user_id: authUser.id,
-      reset_email: emailResult.value,
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      reset_type: "email_otp",
-    };
-
-    const { error: logError } = await supabase
-      .from("PasswordResetLog")
-      .insert(resetLog);
-
-    if (logError) {
-      setStatus({
-        kind: "error",
-        message: getErrorMessage(
-          logError,
-          "Password updated, but the reset log could not be saved.",
-        ),
+          "Password updated, but other sessions could not be revoked. Please try signing out from all devices.",
       });
       return;
     }
@@ -268,10 +239,10 @@ export function ResetPasswordPage() {
     setStatus({
       kind: "success",
       message:
-        "Password updated. We logged the reset and will redirect you to the dashboard.",
+        "Password updated. Sign in again with your new password.",
     });
 
-    window.location.assign("/");
+    window.location.assign("/login");
   }
 
   return (
@@ -376,9 +347,8 @@ export function ResetPasswordPage() {
                       required
                     />
                     <p id="otp-timer" className="text-xs text-muted-foreground">
-                      {isOtpExpired
-                        ? "The code has expired. Request a new one."
-                        : `Code valid for ${formatCountdown(otpRemainingSeconds)}.`}
+                      Use the most recent code from your email. Supabase
+                      enforces its expiration.
                     </p>
                   </div>
 
@@ -459,8 +429,8 @@ export function ResetPasswordPage() {
                 <p className="font-medium text-foreground">Need help?</p>
                 <p>
                   If the code expires, request a fresh one from this page. After
-                  you reset your password, the change is logged for the admin
-                  dashboard and you&apos;ll be sent back to the dashboard.
+                  you reset your password, other sessions are revoked and
+                  you&apos;ll be sent back to login.
                 </p>
                 <a
                   href="/login"

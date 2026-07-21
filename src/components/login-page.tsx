@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,7 +25,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/db/supabase";
+import { clearAppSessionCache } from "@/lib/app-session";
 import {
+  getPasswordErrorMessage,
   sanitizeEmailInput,
   sanitizeOtpInput,
   sanitizePasswordInput,
@@ -32,7 +35,7 @@ import {
   validateOtpInput,
   validatePasswordInput,
 } from "@/lib/input-security";
-import { ensurePubUserRow } from "@/lib/pubuser";
+import { ensurePubUserRow, type PubUserProfile } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
 
 type LoginPageProps = {
@@ -130,6 +133,24 @@ function isEmailDeliveryError(error: unknown) {
   );
 }
 
+function isAccountInactiveError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const authError = error as SupabaseAuthError;
+  const code = String(authError.code ?? "").toLowerCase();
+  const message = String(authError.message ?? "").toLowerCase();
+
+  return (
+    code === "user_banned" ||
+    code.includes("banned") ||
+    message.includes("banned") ||
+    message.includes("deactivated") ||
+    message.includes("inactive")
+  );
+}
+
 function GoogleMark({ className }: { className?: string }) {
   return (
     <svg
@@ -175,14 +196,36 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   const [status, setStatus] = useState<StatusState>({ kind: "idle" });
   const skipNextAuthRedirectRef = useRef(false);
 
-  async function getPostLoginRedirect(userId: string) {
-    const { data, error } = await supabase
-      .from("PubUser")
-      .select("role")
-      .eq("auth_user_id", userId)
-      .maybeSingle<{ role: string | null }>();
+  async function syncSignedInProfile(user: User) {
+    try {
+      return await ensurePubUserRow(user);
+    } catch {
+      return null;
+    }
+  }
 
-    if (!error && data?.role === "admin") {
+  async function getPostLoginRedirect(userId: string, profile?: PubUserProfile | null) {
+    let account = profile ?? null;
+
+    if (!account) {
+      const { data, error } = await supabase
+        .from("PubUser")
+        .select("role, account_status")
+        .eq("auth_user_id", userId)
+        .maybeSingle<{ role: string | null; account_status: string | null }>();
+
+      if (!error) {
+        account = data as PubUserProfile | null;
+      }
+    }
+
+    if (account?.account_status === "inactive") {
+      clearAppSessionCache();
+      await supabase.auth.signOut();
+      return null;
+    }
+
+    if (account?.role === "admin") {
       return "/admin";
     }
 
@@ -192,6 +235,7 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        clearAppSessionCache();
         if (!session?.user) {
           return;
         }
@@ -201,13 +245,16 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
         }
 
         void (async () => {
-          try {
-            await ensurePubUserRow(session.user);
-          } catch {
-            // The dashboard/account center retries the sync if needed.
-          }
+          const profile = await syncSignedInProfile(session.user);
 
-          const target = await getPostLoginRedirect(session.user.id);
+          const target = await getPostLoginRedirect(session.user.id, profile);
+          if (!target) {
+            setStatus({
+              kind: "error",
+              message: "This account is inactive. Contact an admin to reactivate it.",
+            });
+            return;
+          }
           window.location.assign(buildRedirectUrl(target));
         })();
       },
@@ -248,6 +295,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       setIsSigningIn(false);
 
       if (error) {
+        if (isAccountInactiveError(error)) {
+          setStatus({
+            kind: "error",
+            message: "This account is inactive. Contact an admin to reactivate it.",
+          });
+          return;
+        }
+
         if (isEmailNotConfirmedError(error)) {
           setNeedsEmailConfirmation(true);
           const resendSucceeded = await handleResendConfirmation({
@@ -270,17 +325,20 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
         return;
       }
 
-      if (data.session) {
-        try {
-          await ensurePubUserRow(data.session.user);
-        } catch {
-          // The next authenticated page will retry the sync.
-        }
-      }
+      const profile = data.session?.user
+        ? await syncSignedInProfile(data.session.user)
+        : null;
 
       const target = data.session?.user
-        ? await getPostLoginRedirect(data.session.user.id)
+        ? await getPostLoginRedirect(data.session.user.id, profile)
         : redirectTo;
+      if (!target) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
       window.location.assign(buildRedirectUrl(target));
       return;
     }
@@ -316,6 +374,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     setIsSendingLink(false);
 
     if (error) {
+      if (isAccountInactiveError(error)) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
+
       setStatus({
         kind: "error",
         message: getErrorMessage(
@@ -326,17 +392,20 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       return;
     }
 
-    if (data.session?.user) {
-      try {
-        await ensurePubUserRow(data.session.user);
-      } catch {
-        // The dashboard/account center retries the sync if needed.
-      }
-    }
+    const profile = data.session?.user
+      ? await syncSignedInProfile(data.session.user)
+      : null;
 
     const target = data.session?.user
-      ? await getPostLoginRedirect(data.session.user.id)
+      ? await getPostLoginRedirect(data.session.user.id, profile)
       : redirectTo;
+    if (!target) {
+      setStatus({
+        kind: "error",
+        message: "This account is inactive. Contact an admin to reactivate it.",
+      });
+      return;
+    }
     window.location.assign(buildRedirectUrl(target));
   }
 
@@ -441,7 +510,7 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       setIsVerifyingSignUp(false);
       setStatus({
         kind: "error",
-        message: getErrorMessage(
+        message: getPasswordErrorMessage(
           updateError,
           "The account was verified, but the password could not be saved.",
         ),
@@ -449,13 +518,9 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       return;
     }
 
-    if (data.session?.user) {
-      try {
-        await ensurePubUserRow(data.session.user);
-      } catch {
-        // The dashboard/account center retries the sync if needed.
-      }
-    }
+    const profile = data.session?.user
+      ? await syncSignedInProfile(data.session.user)
+      : null;
 
     setIsVerifyingSignUp(false);
     setStatus({
@@ -463,8 +528,15 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
       message: "Account created. Redirecting to the dashboard.",
     });
     const target = data.session?.user
-      ? await getPostLoginRedirect(data.session.user.id)
+      ? await getPostLoginRedirect(data.session.user.id, profile)
       : redirectTo;
+    if (!target) {
+      setStatus({
+        kind: "error",
+        message: "This account is inactive. Contact an admin to reactivate it.",
+      });
+      return;
+    }
     window.location.assign(buildRedirectUrl(target));
   }
 
@@ -562,6 +634,14 @@ export function LoginPage({ redirectTo = "/" }: LoginPageProps) {
     setIsSendingLink(false);
 
     if (error) {
+      if (isAccountInactiveError(error)) {
+        setStatus({
+          kind: "error",
+          message: "This account is inactive. Contact an admin to reactivate it.",
+        });
+        return;
+      }
+
       setStatus({ kind: "error", message: error.message });
       return;
     }

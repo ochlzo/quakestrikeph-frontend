@@ -2,6 +2,13 @@ import { describe, it } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  validateAccountStatusInput,
+  validateAdminCreateUserInput,
+  validateAdminUpdateUserInput,
+} from "../admin-user-validation.ts"
+import {
+  PASSWORD_REQUIREMENTS_MESSAGE,
+  getPasswordErrorMessage,
   sanitizeDecimalInput,
   sanitizeEmailInput,
   sanitizeMagnitudeRangeInput,
@@ -24,6 +31,17 @@ describe("input security helpers", () => {
   it("keeps passwords mostly intact while removing null bytes", () => {
     assert.equal(sanitizePasswordInput("  pass word\u0000  "), "  pass word  ")
     assert.equal(validatePasswordInput("short").error, "Password must be at least 8 characters.")
+    assert.equal(
+      getPasswordErrorMessage(
+        {
+          code: "weak_password",
+          message:
+            "Password should contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0123456789, symbols.",
+        },
+        "Unable to save the password.",
+      ),
+      PASSWORD_REQUIREMENTS_MESSAGE,
+    )
   })
 
   it("sanitizes profile and OTP fields", () => {
@@ -41,5 +59,27 @@ describe("input security helpers", () => {
     assert.equal(sanitizeSearchInput("  Cebu\u0000\nCity  "), " Cebu City ")
     assert.equal(sanitizeDecimalInput("4..5abc"), "4.5")
     assert.equal(sanitizeMagnitudeRangeInput("1<script>-2, 3-4"), "1-2, 3-4")
+  })
+
+  it("validates admin user management input", () => {
+    const createResult = validateAdminCreateUserInput({
+      email: " ADMIN@Example.COM ",
+      password: "valid-password",
+      displayName: "juAN dela-cruz",
+      firstName: "juAN",
+      middleName: "",
+      lastName: "dela-cruz",
+      mobileNumber: "0912 abc 345 6789",
+    })
+
+    assert.equal(createResult.error, undefined)
+    assert.equal(createResult.value.email, "admin@example.com")
+    assert.equal(createResult.value.displayName, "Juan Dela-Cruz")
+    assert.equal(createResult.value.middleName, null)
+    assert.equal(createResult.value.mobileNumber, "09123456789")
+    assert.equal(validateAdminCreateUserInput({ email: "admin@example.com", password: "short" }).error, "Password must be at least 8 characters.")
+    assert.equal(validateAdminUpdateUserInput({ email: "admin@example.com", password: "" }).error, undefined)
+    assert.equal(validateAccountStatusInput({ accountStatus: "inactive" }).value?.accountStatus, "inactive")
+    assert.equal(validateAccountStatusInput({ accountStatus: "deleted" }).error, "Account status must be active or inactive.")
   })
 })

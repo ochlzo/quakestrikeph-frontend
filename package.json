@@ -11,7 +11,7 @@
     "test:filters": "node --experimental-strip-types --test src/lib/tests/earthquake-map-filters.test.ts",
     "test:forecast": "node --experimental-strip-types --test src/lib/tests/earthquake-forecast.test.ts src/lib/tests/forecast-playback.test.ts",
     "test:map": "node --experimental-strip-types --test src/lib/tests/map-basemap.test.ts",
-    "test:security": "node --experimental-strip-types --test src/lib/tests/input-security.test.ts",
+    "test:security": "node --experimental-strip-types --test src/lib/tests/input-security.test.ts src/lib/tests/password-reset-flow.test.ts",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",

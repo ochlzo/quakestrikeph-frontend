@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSavedPin, deleteSavedPin, getSavedPins, type SavedPinInsert } from "@/data/saved-pins";
-import { supabase } from "@/db/supabase";
+import { getCurrentAppSession } from "@/lib/app-session";
 import { sanitizePlainTextInput } from "@/lib/input-security";
 import { getFavoriteLocationLabel, type FavoriteLocationRow } from "@/lib/pubuser";
 import { cn } from "@/lib/utils";
@@ -74,8 +74,8 @@ export function FavoritesPanel() {
 
     async function loadFavorites() {
       setIsLoading(true);
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData.user;
+      const session = await getCurrentAppSession();
+      const user = session.user;
 
       if (!user) {
         if (active) {
@@ -313,8 +313,8 @@ export function FavoritesPanel() {
       return;
     }
 
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user;
+    const session = await getCurrentAppSession();
+    const user = session.user;
     if (!user) {
       toast.error("Sign in first to save a pinned location.");
       return;
